@@ -191,7 +191,8 @@ class RedisStore:
             payload = json.loads(self._decode(raw) or "[]")
         except json.JSONDecodeError:
             return None
-        return payload if isinstance(payload, list) and all(isinstance(x, str) for x in payload) else None
+        valid_topics = isinstance(payload, list) and all(isinstance(x, str) for x in payload)
+        return payload if valid_topics else None
 
     async def close(self) -> None:
         await self.redis.aclose()
