@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Stance(StrEnum):
@@ -9,7 +11,7 @@ class Stance(StrEnum):
     CON = "против"
 
     @property
-    def opposite(self) -> "Stance":
+    def opposite(self) -> Stance:
         return Stance.CON if self is Stance.PRO else Stance.PRO
 
 
@@ -18,26 +20,36 @@ class DebateMode(StrEnum):
     TOURNAMENT = "tournament"
 
 
-@dataclass(slots=True)
-class DebateMessage:
-    author: str
+class Difficulty(StrEnum):
+    BEGINNER = "новичок"
+    EXPERIENCED = "опытный"
+    EXPERT = "эксперт"
+
+
+class DebateMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    author: Literal["user", "bot"]
     text: str
     round_number: int | None = None
 
 
-@dataclass(slots=True)
-class DebateSession:
+class DebateSession(BaseModel):
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
     topic: str
     role: str
+    difficulty: Difficulty = Difficulty.EXPERIENCED
     mode: DebateMode = DebateMode.DEBATE
     user_stance: Stance | None = None
     bot_stance: Stance | None = None
-    history: list[DebateMessage] = field(default_factory=list)
+    history: list[DebateMessage] = Field(default_factory=list)
     user_argument_count: int = 0
     last_progress_review_at: int = 0
     tournament_round: int = 1
     user_arguments_in_round: int = 0
     bot_arguments_in_round: int = 0
+    awaiting_final_score: bool = False
 
     @property
     def is_waiting_for_stance(self) -> bool:
@@ -58,7 +70,9 @@ class DebateSession:
             DebateMessage(
                 author="user",
                 text=text,
-                round_number=self.tournament_round if self.mode is DebateMode.TOURNAMENT else None,
+                round_number=self.tournament_round
+                if self.mode is DebateMode.TOURNAMENT
+                else None,
             )
         )
 
@@ -69,7 +83,9 @@ class DebateSession:
             DebateMessage(
                 author="bot",
                 text=text,
-                round_number=self.tournament_round if self.mode is DebateMode.TOURNAMENT else None,
+                round_number=self.tournament_round
+                if self.mode is DebateMode.TOURNAMENT
+                else None,
             )
         )
 
@@ -78,13 +94,26 @@ class DebateSession:
         self.bot_arguments_in_round = 0
 
 
-@dataclass(slots=True, frozen=True)
-class TournamentScores:
-    logic: int
-    argumentation: int
-    creativity: int
-    winner: str
-    reason: str
+class ScoreBreakdown(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    logic: int = Field(ge=0, le=10)
+    evidence: int = Field(ge=0, le=10)
+    rebuttal: int = Field(ge=0, le=10)
+
+    @property
+    def total(self) -> int:
+        return self.logic + self.evidence + self.rebuttal
+
+
+class TournamentScores(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    logic: int = Field(ge=0, le=10)
+    argumentation: int = Field(ge=0, le=10)
+    creativity: int = Field(ge=0, le=10)
+    winner: Literal["user", "bot", "draw"]
+    reason: str = Field(min_length=1, max_length=600)
 
     @property
     def total(self) -> int:

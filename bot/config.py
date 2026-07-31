@@ -10,8 +10,17 @@ class Settings(BaseSettings):
     bot_token: SecretStr
     openai_api_key: SecretStr
     openai_model: str = "gpt-5.5"
+    openai_judge_model: str | None = None
     openai_base_url: str | None = None
+    redis_url: str = "redis://localhost:6379/0"
+    redis_prefix: str = "disputesbot"
+    session_ttl_seconds: int = 604_800
     leaderboard_path: Path = Path("data/leaderboard.json")
+    max_topic_chars: int = 300
+    max_argument_chars: int = 2500
+    rate_limit_requests: int = 5
+    rate_limit_window_seconds: int = 20
+    request_lock_ttl_seconds: int = 90
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(

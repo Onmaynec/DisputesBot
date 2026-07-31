@@ -1,8 +1,25 @@
 services:
-  disputes-bot:
+  bot:
     build: .
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - ./data:/app/data
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
