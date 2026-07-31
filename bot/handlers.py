@@ -12,7 +12,7 @@ from .config import Settings
 from .debate_utils import detect_stance
 from .guard import RequestGuard
 from .keyboards import tournament_topics_keyboard
-from .llm import DebateEngine, DebateGenerationError, JudgeEngine, ROUND_FOCUS
+from .llm import ROUND_FOCUS, DebateEngine, DebateGenerationError, JudgeEngine
 from .models import DebateMode, DebateSession, Difficulty, Stance
 from .schemas import ProgressReviewOutput, RoundFeedbackOutput, SummaryOutput
 from .storage import LeaderboardStore, SessionStore
@@ -39,7 +39,8 @@ TOURNAMENT_TOPICS = [
 
 START_TEXT = """⚔️ Добро пожаловать в DisputesBot v0.2!
 
-Я всегда занимаю противоположную сторону и помогаю тренировать логику, аргументацию и реакцию на возражения.
+Я всегда занимаю противоположную сторону и помогаю тренировать логику,
+аргументацию и реакцию на возражения.
 
 Как начать:
 1. /debate [тема] — обычный спор.
