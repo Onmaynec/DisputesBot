@@ -11,7 +11,7 @@ class Stance(StrEnum):
     CON = "против"
 
     @property
-    def opposite(self) -> "Stance":
+    def opposite(self) -> Stance:
         return Stance.CON if self is Stance.PRO else Stance.PRO
 
 
