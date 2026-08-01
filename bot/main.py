@@ -10,6 +10,7 @@ from aiogram.types import BotCommand
 from redis.asyncio import from_url
 
 from .config import Settings
+from .cosmetics_repository import CosmeticsRepository
 from .database import Database
 from .guard import RequestGuard
 from .handlers import router as core_router
@@ -29,6 +30,7 @@ from .v04_handlers import router as v04_router
 from .v05_handlers import router as v05_router
 from .v06_handlers import router as v06_router
 from .v07_handlers import router as v07_router
+from .v08_handlers import router as v08_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -65,6 +67,10 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="daily_claim", description="Получить награды заданий"),
             BotCommand(command="season", description="Сезонный прогресс"),
             BotCommand(command="season_top", description="Лидерборд сезонного прогресса"),
+            BotCommand(command="shop", description="Магазин PvP-титулов"),
+            BotCommand(command="buy", description="Купить PvP-титул"),
+            BotCommand(command="inventory", description="Мои PvP-титулы"),
+            BotCommand(command="equip", description="Выбрать PvP-титул"),
             BotCommand(command="block", description="Заблокировать PvP-соперника"),
             BotCommand(command="unblock", description="Убрать пользователя из блок-листа"),
             BotCommand(command="blocked", description="Показать PvP-блок-лист"),
@@ -108,6 +114,7 @@ async def main() -> None:
         reward_multiplier=settings.pvp_daily_reward_multiplier,
         stats_window_days=settings.pvp_stats_window_days,
     )
+    cosmetics_repository = CosmeticsRepository(database.sessions)
     pvp_store = PvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -140,6 +147,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v08_router)
     dispatcher.include_router(v07_router)
     dispatcher.include_router(v06_router)
     dispatcher.include_router(v05_router)
@@ -171,6 +179,7 @@ async def main() -> None:
             pvp_judge_engine=pvp_judge_engine,
             moderation_repository=moderation_repository,
             progression_repository=progression_repository,
+            cosmetics_repository=cosmetics_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
