@@ -9,6 +9,21 @@ class CosmeticKind(StrEnum):
     BADGE = "badge"
 
 
+class PurchaseStatus(StrEnum):
+    PURCHASED = "purchased"
+    ALREADY_OWNED = "already_owned"
+    LOCKED = "locked"
+    INSUFFICIENT_TOKENS = "insufficient_tokens"
+    UNKNOWN_ITEM = "unknown_item"
+
+
+class EquipStatus(StrEnum):
+    EQUIPPED = "equipped"
+    NOT_OWNED = "not_owned"
+    UNKNOWN_ITEM = "unknown_item"
+    EMPTY_INVENTORY = "empty_inventory"
+
+
 @dataclass(frozen=True, slots=True)
 class CosmeticItem:
     item_id: str
@@ -17,6 +32,49 @@ class CosmeticItem:
     display: str
     price_tokens: int
     required_points: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class CosmeticInventoryView:
+    season: str
+    tokens: int
+    season_points: int
+    owned_item_ids: frozenset[str]
+    equipped_title_id: str | None
+    equipped_badge_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseResult:
+    status: PurchaseStatus
+    item: CosmeticItem | None
+    tokens: int
+    season_points: int
+    auto_equipped: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class EquipResult:
+    status: EquipStatus
+    item: CosmeticItem | None
+
+
+@dataclass(frozen=True, slots=True)
+class PvPProfileCard:
+    user_id: int
+    display_name: str
+    username: str | None
+    season: str
+    rating: int | None
+    rank: int | None
+    games: int
+    wins: int
+    draws: int
+    losses: int
+    season_points: int
+    tokens: int
+    title: CosmeticItem | None
+    badge: CosmeticItem | None
 
 
 COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
@@ -88,7 +146,9 @@ COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
 _COSMETICS_BY_ID = {item.item_id: item for item in COSMETIC_CATALOG}
 
 
-def cosmetic_by_id(item_id: str) -> CosmeticItem | None:
+def cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
+    if item_id is None:
+        return None
     return _COSMETICS_BY_ID.get(item_id.strip().lower())
 
 
