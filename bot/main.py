@@ -16,6 +16,7 @@ from .handlers import router as core_router
 from .llm import JudgeEngine
 from .moderation_repository import ModerationRepository
 from .privacy import PrivacyConfirmationStore
+from .progression_repository import ProgressionRepository
 from .pvp_judge import PvPJudgeEngine
 from .pvp_repository import PvPRepository
 from .pvp_store import PvPStore
@@ -27,6 +28,7 @@ from .v03_handlers import router as v03_router
 from .v04_handlers import router as v04_router
 from .v05_handlers import router as v05_router
 from .v06_handlers import router as v06_router
+from .v07_handlers import router as v07_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -58,6 +60,11 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="rating", description="Личный PvP Elo"),
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
+            BotCommand(command="pvp_stats", description="Расширенная PvP-аналитика"),
+            BotCommand(command="daily", description="Ежедневные PvP-задания"),
+            BotCommand(command="daily_claim", description="Получить награды заданий"),
+            BotCommand(command="season", description="Сезонный прогресс"),
+            BotCommand(command="season_top", description="Лидерборд сезонного прогресса"),
             BotCommand(command="block", description="Заблокировать PvP-соперника"),
             BotCommand(command="unblock", description="Убрать пользователя из блок-листа"),
             BotCommand(command="blocked", description="Показать PvP-блок-лист"),
@@ -95,6 +102,12 @@ async def main() -> None:
     leaderboard = SQLProfileStore(database.sessions, store)
     privacy = PrivacyConfirmationStore(redis, prefix=settings.redis_prefix)
     moderation_repository = ModerationRepository(database.sessions)
+    progression_repository = ProgressionRepository(
+        database.sessions,
+        reset_hour_utc=settings.pvp_daily_reset_hour_utc,
+        reward_multiplier=settings.pvp_daily_reward_multiplier,
+        stats_window_days=settings.pvp_stats_window_days,
+    )
     pvp_store = PvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -127,6 +140,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v07_router)
     dispatcher.include_router(v06_router)
     dispatcher.include_router(v05_router)
     dispatcher.include_router(v04_router)
@@ -156,6 +170,7 @@ async def main() -> None:
             pvp_repository=pvp_repository,
             pvp_judge_engine=pvp_judge_engine,
             moderation_repository=moderation_repository,
+            progression_repository=progression_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
