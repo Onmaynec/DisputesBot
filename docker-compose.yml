@@ -1,25 +1,45 @@
 services:
-  bot:
-    build: .
-    restart: unless-stopped
-    env_file: .env
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./data:/app/data
-
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: disputesbot
+      POSTGRES_USER: disputesbot
+      POSTGRES_PASSWORD: disputesbot
     volumes:
-      - redis-data:/data
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U disputesbot -d disputesbot"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  disputes-bot:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["sh", "-c", "alembic upgrade head && python -m bot.main"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
 
 volumes:
   redis-data:
+  postgres-data:
