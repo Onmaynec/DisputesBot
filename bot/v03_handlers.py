@@ -6,7 +6,7 @@ from aiogram import Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
 
-from .achievements import ACHIEVEMENTS, ACHIEVEMENT_BY_ID, level_title
+from .achievements import ACHIEVEMENT_BY_ID, ACHIEVEMENTS, level_title
 from .config import Settings
 from .guard import RequestGuard
 from .handlers import TOURNAMENT_TOPICS, _allow_request, _generate_or_report, _stance_prompt
