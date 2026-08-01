@@ -59,3 +59,20 @@ class AnonymousTournamentOutput(BaseModel):
     participant_b_creativity: int = Field(ge=0, le=10)
     winner: Literal["A", "B", "draw"]
     reasoning: str = Field(min_length=20, max_length=900)
+
+
+class FallacyItemOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=2, max_length=100)
+    excerpt: str = Field(min_length=2, max_length=350)
+    explanation: str = Field(min_length=10, max_length=600)
+    improvement: str = Field(min_length=10, max_length=600)
+    confidence: Literal["низкая", "средняя", "высокая"]
+
+
+class FallacyAnalysisOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fallacies: list[FallacyItemOutput] = Field(default_factory=list, max_length=5)
+    overall_advice: str = Field(min_length=10, max_length=700)
