@@ -6,9 +6,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .cosmetics_models import (
+    TITLE_CATALOG,
     EquipOutcome,
     PurchaseOutcome,
-    TITLE_CATALOG,
     TitleEquipResult,
     TitleInventoryView,
     TitlePurchaseResult,
