@@ -29,7 +29,21 @@ class Settings(BaseSettings):
     pvp_match_ttl_seconds: int = 86_400
     pvp_invitation_ttl_seconds: int = 600
     pvp_queue_ttl_seconds: int = 1_800
+    pvp_turn_timeout_seconds: int = 3_600
+    pvp_timeout_sweep_seconds: int = 30
+    pvp_repeat_window_seconds: int = 86_400
+    pvp_max_rated_pair_matches: int = 3
+    moderator_user_ids: str = ""
     log_level: str = "INFO"
+
+    @property
+    def moderator_ids(self) -> frozenset[int]:
+        values: set[int] = set()
+        for raw in self.moderator_user_ids.replace(";", ",").split(","):
+            normalized = raw.strip()
+            if normalized:
+                values.add(int(normalized))
+        return frozenset(values)
 
     model_config = SettingsConfigDict(
         env_file=".env",

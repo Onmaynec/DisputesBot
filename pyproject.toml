@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "disputes-bot"
-version = "0.5.0"
-description = "Telegram debate trainer with human PvP duels and seasonal Elo"
+version = "0.6.0"
+description = "Telegram debate trainer with moderated human PvP and seasonal Elo"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -33,11 +33,3 @@ include = ["bot*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
-
-[tool.ruff]
-target-version = "py311"
-line-length = 100
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]

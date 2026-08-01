@@ -77,9 +77,13 @@ async def duel_history_command(
             delta = entry.pro_rating_after - entry.pro_rating_before
         else:
             delta = entry.con_rating_after - entry.con_rating_before
-        sign = "+" if delta >= 0 else ""
+        if entry.rated:
+            sign = "+" if delta >= 0 else ""
+            rating_label = f"{sign}{delta} Elo"
+        else:
+            rating_label = "без изменения Elo"
         lines.append(
-            f"{index}. {entry.ended_at:%d.%m.%Y} · {result} · {sign}{delta} Elo\n"
+            f"{index}. {entry.ended_at:%d.%m.%Y} · {result} · {rating_label}\n"
             f"{entry.topic}"
         )
     await message.answer("\n\n".join(lines))

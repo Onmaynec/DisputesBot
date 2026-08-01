@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
@@ -13,16 +14,19 @@ from .database import Database
 from .guard import RequestGuard
 from .handlers import router as core_router
 from .llm import JudgeEngine
+from .moderation_repository import ModerationRepository
 from .privacy import PrivacyConfirmationStore
 from .pvp_judge import PvPJudgeEngine
 from .pvp_repository import PvPRepository
 from .pvp_store import PvPStore
+from .pvp_timeout import run_timeout_sweeper
 from .sql_profile_store import SQLProfileStore
 from .storage import RedisStore
 from .v03_engine import V03DebateEngine
 from .v03_handlers import router as v03_router
 from .v04_handlers import router as v04_router
 from .v05_handlers import router as v05_router
+from .v06_handlers import router as v06_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -47,12 +51,18 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="duel", description="Создать PvP-приглашение"),
             BotCommand(command="queue", description="Найти PvP-соперника"),
             BotCommand(command="leave_queue", description="Выйти из PvP-очереди"),
+            BotCommand(command="rematch_duel", description="Рематч с последним соперником"),
             BotCommand(command="duel_status", description="Состояние PvP-дуэли"),
             BotCommand(command="cancel_duel", description="Отменить PvP до первого хода"),
             BotCommand(command="forfeit", description="Сдаться в PvP-дуэли"),
             BotCommand(command="rating", description="Личный PvP Elo"),
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
+            BotCommand(command="block", description="Заблокировать PvP-соперника"),
+            BotCommand(command="unblock", description="Убрать пользователя из блок-листа"),
+            BotCommand(command="blocked", description="Показать PvP-блок-лист"),
+            BotCommand(command="report", description="Пожаловаться на PvP-матч"),
+            BotCommand(command="my_reports", description="Мои PvP-жалобы"),
             BotCommand(command="cancel", description="Завершить активный спор"),
         ]
     )
@@ -84,14 +94,21 @@ async def main() -> None:
     )
     leaderboard = SQLProfileStore(database.sessions, store)
     privacy = PrivacyConfirmationStore(redis, prefix=settings.redis_prefix)
+    moderation_repository = ModerationRepository(database.sessions)
     pvp_store = PvPStore(
         redis,
         prefix=settings.redis_prefix,
         match_ttl_seconds=settings.pvp_match_ttl_seconds,
         invitation_ttl_seconds=settings.pvp_invitation_ttl_seconds,
         queue_ttl_seconds=settings.pvp_queue_ttl_seconds,
+        turn_timeout_seconds=settings.pvp_turn_timeout_seconds,
+        pair_allowed=moderation_repository.pair_allowed,
     )
-    pvp_repository = PvPRepository(database.sessions)
+    pvp_repository = PvPRepository(
+        database.sessions,
+        repeat_window_seconds=settings.pvp_repeat_window_seconds,
+        max_rated_pair_matches=settings.pvp_max_rated_pair_matches,
+    )
     pvp_judge_engine = PvPJudgeEngine(
         api_key=settings.openai_api_key.get_secret_value(),
         model=settings.openai_judge_model or settings.openai_model,
@@ -110,11 +127,20 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v06_router)
     dispatcher.include_router(v05_router)
     dispatcher.include_router(v04_router)
     dispatcher.include_router(v03_router)
     dispatcher.include_router(core_router)
     await set_commands(bot)
+    timeout_task = asyncio.create_task(
+        run_timeout_sweeper(
+            bot,
+            pvp_store,
+            pvp_repository,
+            interval_seconds=settings.pvp_timeout_sweep_seconds,
+        )
+    )
 
     try:
         await dispatcher.start_polling(
@@ -129,9 +155,13 @@ async def main() -> None:
             pvp_store=pvp_store,
             pvp_repository=pvp_repository,
             pvp_judge_engine=pvp_judge_engine,
+            moderation_repository=moderation_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
+        timeout_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await timeout_task
         await engine.close()
         await judge_engine.close()
         await pvp_judge_engine.close()
