@@ -2,12 +2,12 @@
 
 ## About
 
-> ⚔️ AI-тренер дебатов и безопасных PvP-дуэлей в Telegram: aiogram, PostgreSQL, Redis, независимый судья, сезонный Elo, blocklist, жалобы и дедлайны.
+> ⚔️ AI-тренер дебатов и безопасных PvP-дуэлей в Telegram: сезонный Elo, daily-задания, прогресс, аналитика, blocklist и жалобы.
 
 ## English About
 
-> ⚔️ Telegram AI debate trainer with moderated human PvP, aiogram, PostgreSQL, Redis, independent judging, seasonal Elo, blocklists, reports and turn deadlines.
+> ⚔️ Telegram AI debate trainer with moderated PvP, seasonal Elo, daily quests, progression, analytics, blocklists and reports.
 
 ## Suggested topics
 
-`telegram-bot` · `aiogram` · `python` · `openai` · `postgresql` · `redis` · `sqlalchemy` · `alembic` · `elo-rating` · `matchmaking` · `pvp` · `moderation` · `debate` · `education` · `asyncio` · `structured-outputs`
+`telegram-bot` · `aiogram` · `python` · `openai` · `postgresql` · `redis` · `sqlalchemy` · `alembic` · `elo-rating` · `matchmaking` · `pvp` · `gamification` · `daily-quests` · `moderation` · `debate` · `education` · `asyncio`
