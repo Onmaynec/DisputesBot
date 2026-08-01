@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,8 +33,32 @@ class Settings(BaseSettings):
     pvp_timeout_sweep_seconds: int = 30
     pvp_repeat_window_seconds: int = 86_400
     pvp_max_rated_pair_matches: int = 3
+    pvp_daily_reset_hour_utc: int = 0
+    pvp_daily_reward_multiplier: int = 1
+    pvp_stats_window_days: int = 30
     moderator_user_ids: str = ""
     log_level: str = "INFO"
+
+    @field_validator("pvp_daily_reset_hour_utc")
+    @classmethod
+    def validate_reset_hour(cls, value: int) -> int:
+        if not 0 <= value <= 23:
+            raise ValueError("PVP_DAILY_RESET_HOUR_UTC must be between 0 and 23")
+        return value
+
+    @field_validator("pvp_daily_reward_multiplier")
+    @classmethod
+    def validate_reward_multiplier(cls, value: int) -> int:
+        if not 1 <= value <= 10:
+            raise ValueError("PVP_DAILY_REWARD_MULTIPLIER must be between 1 and 10")
+        return value
+
+    @field_validator("pvp_stats_window_days")
+    @classmethod
+    def validate_stats_window(cls, value: int) -> int:
+        if not 1 <= value <= 365:
+            raise ValueError("PVP_STATS_WINDOW_DAYS must be between 1 and 365")
+        return value
 
     @property
     def moderator_ids(self) -> frozenset[int]:
