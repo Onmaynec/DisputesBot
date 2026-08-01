@@ -2,12 +2,12 @@
 
 ## About
 
-> ⚔️ AI-тренер дебатов в Telegram на Python и aiogram: Redis-сессии, 4 роли, уровни сложности, независимый судья, турниры и лидерборд.
+> ⚔️ Telegram-тренер дебатов на Python и aiogram: Redis-сессии, независимый судья, турниры, история споров, анализ логических ошибок, уровни и достижения.
 
 ## English About
 
-> ⚔️ AI debate trainer for Telegram built with Python and aiogram: Redis sessions, four roles, difficulty levels, independent judging, tournaments and leaderboard.
+> ⚔️ Telegram debate trainer built with Python and aiogram: Redis sessions, independent judging, tournaments, debate history, fallacy analysis, levels and achievements.
 
 ## Suggested topics
 
-`telegram-bot` · `aiogram` · `python` · `openai` · `redis` · `debate` · `education` · `asyncio` · `structured-outputs` · `argumentation`
+`telegram-bot` · `aiogram` · `python` · `openai` · `redis` · `debate` · `education` · `critical-thinking` · `argumentation` · `gamification`
