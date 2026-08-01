@@ -82,8 +82,63 @@ class DebateArchiveRow(Base):
     profile: Mapped[UserProfileRow] = relationship(back_populates="archives")
 
 
+class PvPPlayerRow(Base):
+    __tablename__ = "pvp_players"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    season: Mapped[str] = mapped_column(String(32), primary_key=True)
+    rating: Mapped[int] = mapped_column(Integer, default=1000)
+    games: Mapped[int] = mapped_column(Integer, default=0)
+    wins: Mapped[int] = mapped_column(Integer, default=0)
+    draws: Mapped[int] = mapped_column(Integer, default=0)
+    losses: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class PvPMatchRow(Base):
+    __tablename__ = "pvp_matches"
+
+    match_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    season: Mapped[str] = mapped_column(String(32), nullable=False)
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
+    pro_user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    con_user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    winner_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    pro_rating_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    pro_rating_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    con_rating_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    con_rating_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    pro_scores: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    con_scores: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    transcript: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 Index("ix_debate_archives_user_ended", DebateArchiveRow.user_id, DebateArchiveRow.ended_at)
 Index("ix_user_profiles_ranking", UserProfileRow.best_total, UserProfileRow.average_total)
+Index("ix_pvp_players_season_rating", PvPPlayerRow.season, PvPPlayerRow.rating)
+Index("ix_pvp_matches_pro_ended", PvPMatchRow.pro_user_id, PvPMatchRow.ended_at)
+Index("ix_pvp_matches_con_ended", PvPMatchRow.con_user_id, PvPMatchRow.ended_at)
 
 
 class Database:

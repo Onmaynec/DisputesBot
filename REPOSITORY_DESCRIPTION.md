@@ -2,12 +2,12 @@
 
 ## About
 
-> ⚔️ AI-тренер дебатов в Telegram на Python и aiogram: PostgreSQL-профили, Redis-сессии, независимый судья, турниры, достижения, приватность и экспорт.
+> ⚔️ AI-тренер дебатов и PvP-дуэлей в Telegram: aiogram, PostgreSQL, Redis, независимый судья, сезонный Elo, турниры, достижения и приватность.
 
 ## English About
 
-> ⚔️ AI debate trainer for Telegram with aiogram, PostgreSQL profiles, Redis sessions, independent judging, tournaments, achievements, privacy controls and exports.
+> ⚔️ Telegram AI debate trainer with human PvP duels, aiogram, PostgreSQL, Redis, independent judging, seasonal Elo, tournaments and privacy controls.
 
 ## Suggested topics
 
-`telegram-bot` · `aiogram` · `python` · `openai` · `postgresql` · `redis` · `sqlalchemy` · `alembic` · `debate` · `education` · `asyncio` · `structured-outputs`
+`telegram-bot` · `aiogram` · `python` · `openai` · `postgresql` · `redis` · `sqlalchemy` · `alembic` · `elo-rating` · `matchmaking` · `pvp` · `debate` · `education` · `asyncio` · `structured-outputs`

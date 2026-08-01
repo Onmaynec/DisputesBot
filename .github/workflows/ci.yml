@@ -39,6 +39,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Ruff
         run: ruff check .
+      - name: Compile
+        run: python -m compileall -q bot tests migrations
       - name: Migrations
         run: alembic upgrade head
       - name: Tests

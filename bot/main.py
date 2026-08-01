@@ -14,11 +14,15 @@ from .guard import RequestGuard
 from .handlers import router as core_router
 from .llm import JudgeEngine
 from .privacy import PrivacyConfirmationStore
+from .pvp_judge import PvPJudgeEngine
+from .pvp_repository import PvPRepository
+from .pvp_store import PvPStore
 from .sql_profile_store import SQLProfileStore
 from .storage import RedisStore
 from .v03_engine import V03DebateEngine
 from .v03_handlers import router as v03_router
 from .v04_handlers import router as v04_router
+from .v05_handlers import router as v05_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -40,6 +44,15 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="export", description="Экспортировать спор в Markdown"),
             BotCommand(command="privacy", description="Какие данные сохраняются"),
             BotCommand(command="delete_me", description="Удалить мои данные"),
+            BotCommand(command="duel", description="Создать PvP-приглашение"),
+            BotCommand(command="queue", description="Найти PvP-соперника"),
+            BotCommand(command="leave_queue", description="Выйти из PvP-очереди"),
+            BotCommand(command="duel_status", description="Состояние PvP-дуэли"),
+            BotCommand(command="cancel_duel", description="Отменить PvP до первого хода"),
+            BotCommand(command="forfeit", description="Сдаться в PvP-дуэли"),
+            BotCommand(command="rating", description="Личный PvP Elo"),
+            BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
+            BotCommand(command="duel_history", description="История PvP-дуэлей"),
             BotCommand(command="cancel", description="Завершить активный спор"),
         ]
     )
@@ -71,6 +84,19 @@ async def main() -> None:
     )
     leaderboard = SQLProfileStore(database.sessions, store)
     privacy = PrivacyConfirmationStore(redis, prefix=settings.redis_prefix)
+    pvp_store = PvPStore(
+        redis,
+        prefix=settings.redis_prefix,
+        match_ttl_seconds=settings.pvp_match_ttl_seconds,
+        invitation_ttl_seconds=settings.pvp_invitation_ttl_seconds,
+        queue_ttl_seconds=settings.pvp_queue_ttl_seconds,
+    )
+    pvp_repository = PvPRepository(database.sessions)
+    pvp_judge_engine = PvPJudgeEngine(
+        api_key=settings.openai_api_key.get_secret_value(),
+        model=settings.openai_judge_model or settings.openai_model,
+        base_url=settings.openai_base_url,
+    )
     engine = V03DebateEngine(
         api_key=settings.openai_api_key.get_secret_value(),
         model=settings.openai_model,
@@ -84,6 +110,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v05_router)
     dispatcher.include_router(v04_router)
     dispatcher.include_router(v03_router)
     dispatcher.include_router(core_router)
@@ -99,11 +126,15 @@ async def main() -> None:
             guard=guard,
             privacy=privacy,
             settings=settings,
+            pvp_store=pvp_store,
+            pvp_repository=pvp_repository,
+            pvp_judge_engine=pvp_judge_engine,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
         await engine.close()
         await judge_engine.close()
+        await pvp_judge_engine.close()
         await store.close()
         await database.close()
         await bot.session.close()

@@ -13,6 +13,8 @@ from aiogram.types import (
 from .exporter import export_filename, render_archive_markdown, render_session_markdown
 from .privacy import PrivacyConfirmationStore
 from .profile_protocol import ProfileRepository
+from .pvp_repository import PvPRepository
+from .pvp_store import PvPStore
 from .storage import SessionStore
 
 router = Router(name="v04")
@@ -51,11 +53,13 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 Постоянно сохраняются:
 • Telegram user_id, username и отображаемое имя;
 • турнирная статистика, XP и достижения;
-• до 30 последних архивов споров.
+• до 30 последних архивов споров;
+• сезонный PvP Elo и история завершённых дуэлей.
 
-В Redis временно хранятся активный спор, роль, сложность, блокировки и rate limit.
-Данные не передаются другим пользователям. Команда /delete_me удаляет профиль, архивы,
-статистику, настройки и активную Redis-сессию."""
+В Redis временно хранятся активный спор, PvP-матч, очередь, приглашения, роль,
+сложность, блокировки и rate limit.
+Участник PvP видит имя и аргументы своего соперника. Команда /delete_me удаляет профиль,
+архивы, PvP-рейтинг, историю матчей, настройки и активные Redis-сессии."""
 
 
 @router.message(Command("privacy"))
@@ -94,6 +98,8 @@ async def confirm_delete_callback(
     callback: CallbackQuery,
     privacy: PrivacyConfirmationStore,
     leaderboard: ProfileRepository,
+    pvp_store: PvPStore,
+    pvp_repository: PvPRepository,
 ) -> None:
     token = (callback.data or "").split(":", maxsplit=2)[-1]
     if not await privacy.consume(callback.from_user.id, token):
@@ -103,7 +109,9 @@ async def confirm_delete_callback(
                 "⌛ Подтверждение устарело. Запустите /delete_me ещё раз."
             )
         return
+    await pvp_repository.delete_user_data(callback.from_user.id)
     await leaderboard.delete_user(callback.from_user.id)
+    await pvp_store.delete_user_data(callback.from_user.id)
     await privacy.delete_user_data(callback.from_user.id)
     await callback.answer("Данные удалены")
     if callback.message is not None:
