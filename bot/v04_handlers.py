@@ -10,6 +10,7 @@ from aiogram.types import (
     Message,
 )
 
+from .cosmetics_repository import CosmeticsRepository
 from .exporter import export_filename, render_archive_markdown, render_session_markdown
 from .moderation_repository import ModerationRepository
 from .privacy import PrivacyConfirmationStore
@@ -39,14 +40,14 @@ def delete_confirmation_keyboard(token: str) -> InlineKeyboardMarkup:
 @router.message(CommandStart())
 async def start_v04_command(message: Message) -> None:
     await message.answer(
-        "⚔️ Добро пожаловать в DisputesBot v0.7!\n\n"
+        "⚔️ Добро пожаловать в DisputesBot v0.8!\n\n"
         "Тренируйте аргументацию с ботом или участвуйте в PvP-дуэлях.\n\n"
         "Новые команды:\n"
-        "/daily — ежедневные PvP-задания\n"
-        "/daily_claim — получить награды\n"
-        "/season — сезонный прогресс\n"
-        "/season_top — лидерборд прогресса\n"
-        "/pvp_stats — расширенная PvP-аналитика\n\n"
+        "/shop — магазин сезонных PvP-титулов\n"
+        "/buy — купить титул за PvP-токены\n"
+        "/inventory — посмотреть купленные титулы\n"
+        "/equip — выбрать или снять титул\n\n"
+        "Ежедневные задания: /daily\n"
         "Начать спор: /debate [тема]"
     )
 
@@ -60,14 +61,15 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 • сезонный PvP Elo и история завершённых дуэлей;
 • пользовательский PvP-блок-лист;
 • жалобы на матчи и журнал их обработки;
-• сезонные очки, PvP-токены, серии дней и полученные daily-награды.
+• сезонные очки, PvP-токены, серии дней и полученные daily-награды;
+• купленные сезонные PvP-титулы и выбранный титул.
 
 В Redis временно хранятся активный спор, PvP-матч, очередь, приглашения, роль,
 сложность, блокировки запросов и rate limit.
 Участник PvP видит имя и аргументы своего соперника. Команда /delete_me удаляет профиль,
-архивы, PvP-рейтинг, историю матчей, progression-данные, blocklist, настройки и активные
-Redis-сессии. Жалобы сохраняются как аудиторские записи, но связь с удалённым
-заявителем очищается."""
+архивы, PvP-рейтинг, историю матчей, progression-данные, покупки титулов, blocklist,
+настройки и активные Redis-сессии. Жалобы сохраняются как аудиторские записи, но связь
+с удалённым заявителем очищается."""
 
 
 @router.message(Command("privacy"))
@@ -85,7 +87,8 @@ async def delete_me_command(
     token = await privacy.create(message.from_user.id)
     await message.answer(
         "⚠️ Это безвозвратно удалит статистику, достижения, архивы, настройки, "
-        "сезонный прогресс и активный спор. Подтверждение действует 5 минут.",
+        "сезонный прогресс, купленные титулы и активный спор. "
+        "Подтверждение действует 5 минут.",
         reply_markup=delete_confirmation_keyboard(token),
     )
 
@@ -110,6 +113,7 @@ async def confirm_delete_callback(
     pvp_repository: PvPRepository,
     moderation_repository: ModerationRepository,
     progression_repository: ProgressionRepository,
+    cosmetics_repository: CosmeticsRepository,
 ) -> None:
     token = (callback.data or "").split(":", maxsplit=2)[-1]
     if not await privacy.consume(callback.from_user.id, token):
@@ -120,6 +124,7 @@ async def confirm_delete_callback(
             )
         return
     await moderation_repository.anonymize_user(callback.from_user.id)
+    await cosmetics_repository.delete_user_data(callback.from_user.id)
     await progression_repository.delete_user_data(callback.from_user.id)
     await pvp_repository.delete_user_data(callback.from_user.id)
     await leaderboard.delete_user(callback.from_user.id)
@@ -128,8 +133,8 @@ async def confirm_delete_callback(
     await callback.answer("Данные удалены")
     if callback.message is not None:
         await callback.message.edit_text(
-            "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, настройки "
-            "и активная сессия удалены."
+            "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, титулы, "
+            "настройки и активная сессия удалены."
         )
 
 
