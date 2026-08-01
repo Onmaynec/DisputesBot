@@ -1,11 +1,11 @@
 import pytest
 
-aiosqlite = pytest.importorskip("aiosqlite")
-
 from bot.database import Database
 from bot.models import DebateMode, Stance, TournamentScores
 from bot.sql_profile_store import SQLProfileStore
 from bot.storage import MemoryStore
+
+pytest.importorskip("aiosqlite")
 
 
 @pytest.mark.asyncio
