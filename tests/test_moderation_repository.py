@@ -2,16 +2,16 @@ import importlib.util
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("aiosqlite") is None,
-    reason="aiosqlite is not installed in the local sandbox",
-)
-
 from bot.database import Database
 from bot.models import Stance
 from bot.moderation_models import ReportCategory, ReportStatus
 from bot.moderation_repository import ModerationRepository
 from bot.pvp_models import PvPMatch, PvPParticipant, PvPUser
+
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec("aiosqlite") is None,
+    reason="aiosqlite is not installed in the local sandbox",
+)
 
 
 @pytest.mark.asyncio
