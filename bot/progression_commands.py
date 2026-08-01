@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from .config import Settings
+from .cosmetics_repository import CosmeticsRepository
 from .progression_models import season_tier
 from .progression_repository import ProgressionRepository
 from .pvp_models import PvPUser
@@ -91,6 +92,7 @@ async def daily_claim_command(
 async def season_command(
     message: Message,
     progression_repository: ProgressionRepository,
+    cosmetics_repository: CosmeticsRepository,
     settings: Settings,
 ) -> None:
     if message.from_user is None:
@@ -99,16 +101,23 @@ async def season_command(
         message.from_user.id,
         settings.pvp_season,
     )
+    title = await cosmetics_repository.equipped_title(
+        message.from_user.id,
+        settings.pvp_season,
+    )
     tier = season_tier(wallet.season_points)
+    title_text = title.label if title is not None else "не выбран"
     await message.answer(
         f"🏅 Сезонный прогресс — {settings.pvp_season}\n\n"
+        f"Титул: {title_text}\n"
         f"Уровень {tier.number}: {tier.name}\n"
         f"Прогресс уровня: {tier.progress_text(wallet.season_points)}\n"
         f"⭐ Очки сезона: {wallet.season_points}\n"
         f"🪙 PvP-токены: {wallet.tokens}\n"
         f"🎯 Получено заданий: {wallet.daily_claims}\n"
         f"🔥 Текущая серия: {wallet.current_daily_streak}\n"
-        f"🏆 Лучшая серия: {wallet.best_daily_streak}"
+        f"🏆 Лучшая серия: {wallet.best_daily_streak}\n\n"
+        "Магазин титулов: /shop"
     )
 
 
