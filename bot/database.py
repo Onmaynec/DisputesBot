@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -189,6 +190,49 @@ class PvPReportRow(Base):
     )
 
 
+class PvPProgressionRow(Base):
+    __tablename__ = "pvp_progression"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    season: Mapped[str] = mapped_column(String(32), primary_key=True)
+    tokens: Mapped[int] = mapped_column(Integer, default=0)
+    season_points: Mapped[int] = mapped_column(Integer, default=0)
+    daily_claims: Mapped[int] = mapped_column(Integer, default=0)
+    current_daily_streak: Mapped[int] = mapped_column(Integer, default=0)
+    best_daily_streak: Mapped[int] = mapped_column(Integer, default=0)
+    last_claim_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class PvPDailyClaimRow(Base):
+    __tablename__ = "pvp_daily_claims"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    season: Mapped[str] = mapped_column(String(32), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    quest_id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    reward_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    reward_points: Mapped[int] = mapped_column(Integer, nullable=False)
+    claimed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+
+
 Index("ix_debate_archives_user_ended", DebateArchiveRow.user_id, DebateArchiveRow.ended_at)
 Index("ix_user_profiles_ranking", UserProfileRow.best_total, UserProfileRow.average_total)
 Index("ix_pvp_players_season_rating", PvPPlayerRow.season, PvPPlayerRow.rating)
@@ -198,6 +242,17 @@ Index("ix_pvp_matches_pair_ended", PvPMatchRow.pair_key, PvPMatchRow.ended_at)
 Index("ix_pvp_blocks_blocked", PvPBlockRow.blocked_id)
 Index("ix_pvp_reports_status_created", PvPReportRow.status, PvPReportRow.created_at)
 Index("ix_pvp_reports_reporter_created", PvPReportRow.reporter_id, PvPReportRow.created_at)
+Index(
+    "ix_pvp_progression_season_points",
+    PvPProgressionRow.season,
+    PvPProgressionRow.season_points,
+)
+Index(
+    "ix_pvp_daily_claims_season_day",
+    PvPDailyClaimRow.season,
+    PvPDailyClaimRow.day,
+)
+Index("ix_pvp_daily_claims_user_day", PvPDailyClaimRow.user_id, PvPDailyClaimRow.day)
 
 
 class Database:
