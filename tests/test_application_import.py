@@ -12,6 +12,7 @@ pytestmark = pytest.mark.skipif(
 def test_application_imports_all_routers() -> None:
     module = importlib.import_module("bot.main")
 
+    assert module.v07_router.name == "v07"
     assert module.v06_router.name == "v06"
     assert module.v05_router.name == "v05"
     assert module.v04_router.name == "v04"

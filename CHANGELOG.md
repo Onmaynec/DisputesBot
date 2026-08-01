@@ -1,33 +1,40 @@
 # Changelog
 
-## 0.6.0 — 2026-08-01
+## 0.7.0 — 2026-08-01
 
 ### Added
 
-- Persistent directional PvP blocklist with `/block`, `/unblock` and `/blocked`.
-- Block-aware open invitations, personal rematches and matchmaking queue.
-- Structured PvP reports with deterministic report IDs and `/my_reports`.
-- Moderator-only report review commands with decision audit fields.
-- Per-turn deadlines, Redis active-match index and background timeout sweep.
-- `/rematch_duel` for the latest opponent with optional topic replacement.
-- Pair-based Elo anti-farming window and unrated history entries.
-- `/pvp_health` with aggregate active-match, queue and open-report counts.
-- Alembic migration `0003_moderation`.
+- Deterministic daily PvP quest set with `/daily`.
+- Idempotent transactional reward collection through `/daily_claim`.
+- Separate PvP tokens, season points and daily claim streaks.
+- Six fixed season tiers and `/season` progression view.
+- `/season_top` leaderboard ordered by season points and stable tie-breakers.
+- `/pvp_stats` with rated/unrated split, win rate, opponent diversity and streaks.
+- Side-specific pro/con statistics and configurable recent Elo window.
+- PostgreSQL tables `pvp_progression` and `pvp_daily_claims`.
+- Alembic migration `0004_progression`.
 
 ### Reliability
 
-- Timeout finalization is guarded by the existing distributed match lock.
-- A timeout before the first move cancels without rating changes.
-- A timeout after play begins records a deterministic loss for the inactive player.
-- Pair rating checks are side-independent and player rows are locked in stable ID order.
-- Duplicate reports and repeated match persistence are idempotent.
-- Account deletion anonymizes report ownership and clears blocklist relations.
+- Quest definitions are derived from the progression date and survive restarts.
+- Progress is calculated from immutable stored PvP matches.
+- Profile row locking serializes reward claims for an existing player.
+- A composite claim key prevents duplicate rewards per user, season, day and quest.
+- Daily streaks advance at most once per progression day.
+- Progression rewards never modify PvP Elo or match outcomes.
 
-### Compatibility
+### Privacy and compatibility
 
-- Existing v0.5 matches are assigned a `pair_key` during migration.
-- Solo debates, v0.5 PvP commands, profiles and archives remain compatible.
+- `/delete_me` removes wallets and claim history before deleting the profile.
+- Privacy documentation includes tokens, season points and daily streaks.
+- Existing v0.6 profiles, matches, reports and moderation data remain compatible.
 - No new runtime dependency is required.
+
+## 0.6.0 — 2026-08-01
+
+- PvP blocklists, reports, moderator audit and turn deadlines.
+- Personal rematches, timeout resolution and Elo anti-farming.
+- Migration `0003_moderation`.
 
 ## 0.5.0 — 2026-08-01
 
