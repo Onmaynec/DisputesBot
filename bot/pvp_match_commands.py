@@ -62,7 +62,10 @@ async def cancel_duel_command(message: Message, pvp_store: PvPStore) -> None:
         await message.answer("После первого аргумента можно только сдаться: /forfeit")
         return
     for user_id in (match.pro.user_id, match.con.user_id):
-        await message.bot.send_message(user_id, "🛑 Дуэль отменена до первого хода. Elo не изменён.")
+        await message.bot.send_message(
+            user_id,
+            "🛑 Дуэль отменена до первого хода. Elo не изменён.",
+        )
 
 
 @router.message(Command("forfeit"))
