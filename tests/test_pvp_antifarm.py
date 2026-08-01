@@ -2,15 +2,15 @@ import importlib.util
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("aiosqlite") is None,
-    reason="aiosqlite is not installed in the local sandbox",
-)
-
 from bot.database import Database
 from bot.models import ScoreBreakdown, Stance
 from bot.pvp_models import PvPJudgement, PvPMatch, PvPParticipant
 from bot.pvp_repository import PvPRepository
+
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec("aiosqlite") is None,
+    reason="aiosqlite is not installed in the local sandbox",
+)
 
 
 def completed_match() -> tuple[PvPMatch, PvPJudgement]:
