@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -50,6 +52,10 @@ class DebateSession(BaseModel):
     user_arguments_in_round: int = 0
     bot_arguments_in_round: int = 0
     awaiting_final_score: bool = False
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    session_id: str = Field(default_factory=lambda: uuid4().hex)
+    archive_id: str | None = None
+    last_fallacies: list[str] = Field(default_factory=list, max_length=10)
 
     @property
     def is_waiting_for_stance(self) -> bool:
@@ -118,3 +124,47 @@ class TournamentScores(BaseModel):
     @property
     def total(self) -> int:
         return self.logic + self.argumentation + self.creativity
+
+
+class DebateArchiveEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(default_factory=lambda: uuid4().hex)
+    topic: str
+    mode: DebateMode
+    role: str
+    difficulty: Difficulty
+    status: Literal["judged", "cancelled", "completed", "replaced"]
+    winner: Literal["user", "bot", "draw", "none"] = "none"
+    score_total: int | None = Field(default=None, ge=0, le=30)
+    user_argument_count: int = Field(ge=0)
+    user_stance: Stance | None = None
+    started_at: datetime
+    ended_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    fallacies: list[str] = Field(default_factory=list, max_length=10)
+    transcript: list[DebateMessage] = Field(default_factory=list, max_length=80)
+
+    @classmethod
+    def from_session(
+        cls,
+        session: DebateSession,
+        *,
+        status: Literal["judged", "cancelled", "completed", "replaced"],
+        winner: Literal["user", "bot", "draw", "none"] = "none",
+        score_total: int | None = None,
+    ) -> DebateArchiveEntry:
+        return cls(
+            id=session.archive_id or session.session_id,
+            topic=session.topic,
+            mode=session.mode,
+            role=session.role,
+            difficulty=session.difficulty,
+            status=status,
+            winner=winner,
+            score_total=score_total,
+            user_argument_count=session.user_argument_count,
+            user_stance=session.user_stance,
+            started_at=session.started_at,
+            fallacies=list(session.last_fallacies),
+            transcript=session.history[-80:],
+        )
