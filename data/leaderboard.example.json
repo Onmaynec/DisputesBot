@@ -1,1 +1,18 @@
-{}
+{
+  "123456789": {
+    "user_id": 123456789,
+    "username": "debater",
+    "display_name": "Debater",
+    "tournaments": 1,
+    "regular_debates": 1,
+    "completed_debates": 2,
+    "wins": 1,
+    "draws": 0,
+    "losses": 0,
+    "best_total": 25,
+    "average_total": 25.0,
+    "xp": 95,
+    "level": 1,
+    "achievements": ["first_debate", "first_tournament", "first_win"]
+  }
+}
