@@ -14,7 +14,6 @@ from .pvp_models import (
     PvPMatch,
     PvPParticipant,
     PvPQueueEntry,
-    PvPStatus,
     PvPUser,
 )
 
@@ -169,9 +168,11 @@ class PvPStore:
         source_match_id: str | None = None,
         rated_hint: bool = True,
     ) -> PvPInvitation:
-        if target_user_id is not None:
-            if not await self._is_pair_allowed(inviter.user_id, target_user_id):
-                raise PvPBusyError("Персональное приглашение запрещено блокировкой")
+        if target_user_id is not None and not await self._is_pair_allowed(
+            inviter.user_id,
+            target_user_id,
+        ):
+            raise PvPBusyError("Персональное приглашение запрещено блокировкой")
         previous = await self.redis.get(self._key("invite-user", inviter.user_id))
         if previous is not None:
             await self.redis.delete(self._key("invite", self._decode(previous)))
