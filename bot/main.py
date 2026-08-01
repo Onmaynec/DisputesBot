@@ -22,6 +22,7 @@ from .pvp_judge import PvPJudgeEngine
 from .pvp_repository import PvPRepository
 from .pvp_store import PvPStore
 from .pvp_timeout import run_timeout_sweeper
+from .social_repository import SocialRepository
 from .sql_profile_store import SQLProfileStore
 from .storage import RedisStore
 from .v03_engine import V03DebateEngine
@@ -31,6 +32,7 @@ from .v05_handlers import router as v05_router
 from .v06_handlers import router as v06_router
 from .v07_handlers import router as v07_router
 from .v08_handlers import router as v08_router
+from .v09_handlers import router as v09_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -72,7 +74,10 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="inventory", description="Мой PvP-инвентарь"),
             BotCommand(command="equip", description="Экипировать косметику"),
             BotCommand(command="unequip", description="Снять косметику"),
-            BotCommand(command="pvp_profile", description="Публичная PvP-карточка"),
+            BotCommand(command="pvp_profile", description="PvP-карточка игрока"),
+            BotCommand(command="profile_visibility", description="Видимость PvP-профиля"),
+            BotCommand(command="rivals", description="Главные PvP-соперники"),
+            BotCommand(command="head_to_head", description="Личные встречи с игроком"),
             BotCommand(command="block", description="Заблокировать PvP-соперника"),
             BotCommand(command="unblock", description="Убрать пользователя из блок-листа"),
             BotCommand(command="blocked", description="Показать PvP-блок-лист"),
@@ -117,6 +122,7 @@ async def main() -> None:
         stats_window_days=settings.pvp_stats_window_days,
     )
     cosmetic_repository = CosmeticRepository(database.sessions)
+    social_repository = SocialRepository(database.sessions)
     pvp_store = PvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -149,6 +155,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v09_router)
     dispatcher.include_router(v08_router)
     dispatcher.include_router(v07_router)
     dispatcher.include_router(v06_router)
@@ -182,6 +189,7 @@ async def main() -> None:
             moderation_repository=moderation_repository,
             progression_repository=progression_repository,
             cosmetic_repository=cosmetic_repository,
+            social_repository=social_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
