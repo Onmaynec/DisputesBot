@@ -233,6 +233,42 @@ class PvPDailyClaimRow(Base):
     )
 
 
+class PvPTitlePurchaseRow(Base):
+    __tablename__ = "pvp_title_purchases"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    season: Mapped[str] = mapped_column(String(32), primary_key=True)
+    title_id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    price_paid: Mapped[int] = mapped_column(Integer, nullable=False)
+    purchased_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+
+
+class PvPTitleLoadoutRow(Base):
+    __tablename__ = "pvp_title_loadouts"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    season: Mapped[str] = mapped_column(String(32), primary_key=True)
+    equipped_title_id: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
 Index("ix_debate_archives_user_ended", DebateArchiveRow.user_id, DebateArchiveRow.ended_at)
 Index("ix_user_profiles_ranking", UserProfileRow.best_total, UserProfileRow.average_total)
 Index("ix_pvp_players_season_rating", PvPPlayerRow.season, PvPPlayerRow.rating)
@@ -253,6 +289,11 @@ Index(
     PvPDailyClaimRow.day,
 )
 Index("ix_pvp_daily_claims_user_day", PvPDailyClaimRow.user_id, PvPDailyClaimRow.day)
+Index(
+    "ix_pvp_title_purchases_season_title",
+    PvPTitlePurchaseRow.season,
+    PvPTitlePurchaseRow.title_id,
+)
 
 
 class Database:
