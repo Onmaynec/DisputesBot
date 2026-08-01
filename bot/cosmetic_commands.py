@@ -13,7 +13,6 @@ from .cosmetics import (
     PurchaseStatus,
     cosmetics_by_kind,
 )
-from .progression_models import season_tier
 from .pvp_models import PvPUser
 
 router = Router(name="cosmetics")
@@ -221,32 +220,3 @@ async def unequip_command(
         await message.answer("В этом слоте ничего не экипировано.")
     else:
         await message.answer(f"Снято: {result.item.display} {result.item.name}")
-
-
-@router.message(Command("pvp_profile"))
-async def pvp_profile_command(
-    message: Message,
-    cosmetic_repository: CosmeticRepository,
-    settings: Settings,
-) -> None:
-    user = _pvp_user(message)
-    if user is None:
-        return
-    profile = await cosmetic_repository.profile(user, settings.pvp_season)
-    tier = season_tier(profile.season_points)
-    badge = f"{profile.badge.display} " if profile.badge is not None else ""
-    title = f" — {profile.title.display}" if profile.title is not None else ""
-    rating = str(profile.rating) if profile.rating is not None else "нет матчей"
-    rank = f"#{profile.rank}" if profile.rank is not None else "—"
-    await message.answer(
-        f"{badge}⚔️ {profile.display_name}{title}\n"
-        f"Сезон: {profile.season}\n\n"
-        f"Elo: {rating} · место: {rank}\n"
-        f"Матчи: {profile.games} · "
-        f"победы/ничьи/поражения: "
-        f"{profile.wins}/{profile.draws}/{profile.losses}\n"
-        f"Уровень: {tier.number} — {tier.name}\n"
-        f"⭐ Очки сезона: {profile.season_points}\n"
-        f"🪙 Токены: {profile.tokens}\n\n"
-        "Косметика: /shop · /inventory"
-    )
