@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.8.0 — 2026-08-01
+
+### Added
+
+- Seasonal PvP title shop through `/shop`.
+- Six cosmetic titles gated by season points and purchased with PvP tokens.
+- Transactional `/buy` flow with idempotent ownership checks.
+- `/inventory` for owned titles and current token balance.
+- `/equip` for selecting or clearing the active title.
+- Equipped title display in `/season`.
+- PostgreSQL tables `pvp_title_purchases` and `pvp_title_loadouts`.
+- Alembic migration `0005_cosmetic_titles`.
+
+### Reliability
+
+- Profile row locking serializes purchases for one user.
+- Token deduction and title ownership are committed in one transaction.
+- Duplicate purchases never charge tokens twice.
+- The first purchased title is equipped automatically.
+- Locked and unaffordable purchases leave the wallet unchanged.
+- Catalog definitions remain code-backed and deterministic.
+
+### Privacy and compatibility
+
+- `/delete_me` explicitly clears title purchases and loadouts.
+- Titles are cosmetic and never affect matchmaking, judging or Elo.
+- Existing v0.7 wallets, daily claims and season points remain compatible.
+- No new runtime dependency is required.
+
 ## 0.7.0 — 2026-08-01
 
 ### Added
