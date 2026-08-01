@@ -18,6 +18,7 @@ from .profile_protocol import ProfileRepository
 from .progression_repository import ProgressionRepository
 from .pvp_repository import PvPRepository
 from .pvp_store import PvPStore
+from .social_repository import SocialRepository
 from .storage import SessionStore
 
 router = Router(name="v04")
@@ -40,14 +41,14 @@ def delete_confirmation_keyboard(token: str) -> InlineKeyboardMarkup:
 @router.message(CommandStart())
 async def start_v04_command(message: Message) -> None:
     await message.answer(
-        "⚔️ Добро пожаловать в DisputesBot v0.8!\n\n"
+        "⚔️ Добро пожаловать в DisputesBot v0.9!\n\n"
         "Тренируйте аргументацию с ботом или участвуйте в PvP-дуэлях.\n\n"
         "Новые команды:\n"
-        "/shop — магазин PvP-косметики\n"
-        "/buy — купить предмет за токены\n"
-        "/inventory — сезонный инвентарь\n"
-        "/equip — экипировать титул или значок\n"
-        "/pvp_profile — публичная PvP-карточка\n\n"
+        "/rivals — главные соперники сезона\n"
+        "/head_to_head — личные встречи с игроком\n"
+        "/pvp_profile — своя или публичная карточка\n"
+        "/profile_visibility — открыть или скрыть профиль\n\n"
+        "Магазин косметики: /shop\n"
         "Ежедневные задания: /daily\n"
         "Начать спор: /debate [тема]"
     )
@@ -63,14 +64,21 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 • пользовательский PvP-блок-лист;
 • жалобы на матчи и журнал их обработки;
 • сезонные очки, PvP-токены, серии дней и полученные daily-награды;
-• купленные косметические item ID и выбранный сезонный loadout.
+• купленные косметические item ID и выбранный сезонный loadout;
+• настройка публичности PvP-профиля.
+
+Публичность профиля по умолчанию выключена. После /profile_visibility public другие
+пользователи могут видеть PvP Elo, сезонную статистику, очки и экипированную косметику.
+Баланс токенов другим пользователям не показывается. Блокировка в любую сторону всегда
+запрещает просмотр профиля. /rivals и /head_to_head показывают только статистику матчей,
+в которых участвовал сам запрашивающий пользователь.
 
 В Redis временно хранятся активный спор, PvP-матч, очередь, приглашения, роль,
 сложность, блокировки запросов и rate limit.
 Участник PvP видит имя и аргументы своего соперника. Команда /delete_me удаляет профиль,
 архивы, PvP-рейтинг, историю матчей, progression-данные, косметический инвентарь,
-blocklist, настройки и активные Redis-сессии. Жалобы сохраняются как аудиторские записи,
-но связь с удалённым заявителем очищается."""
+настройку публичности, blocklist, настройки и активные Redis-сессии. Жалобы сохраняются
+как аудиторские записи, но связь с удалённым заявителем очищается."""
 
 
 @router.message(Command("privacy"))
@@ -88,8 +96,8 @@ async def delete_me_command(
     token = await privacy.create(message.from_user.id)
     await message.answer(
         "⚠️ Это безвозвратно удалит статистику, достижения, архивы, настройки, "
-        "сезонный прогресс, косметический инвентарь и активный спор. "
-        "Подтверждение действует 5 минут.",
+        "сезонный прогресс, косметический инвентарь, настройку публичности "
+        "и активный спор. Подтверждение действует 5 минут.",
         reply_markup=delete_confirmation_keyboard(token),
     )
 
@@ -115,6 +123,7 @@ async def confirm_delete_callback(
     moderation_repository: ModerationRepository,
     progression_repository: ProgressionRepository,
     cosmetic_repository: CosmeticRepository,
+    social_repository: SocialRepository,
 ) -> None:
     token = (callback.data or "").split(":", maxsplit=2)[-1]
     if not await privacy.consume(callback.from_user.id, token):
@@ -125,6 +134,7 @@ async def confirm_delete_callback(
             )
         return
     await moderation_repository.anonymize_user(callback.from_user.id)
+    await social_repository.delete_user_data(callback.from_user.id)
     await cosmetic_repository.delete_user_data(callback.from_user.id)
     await progression_repository.delete_user_data(callback.from_user.id)
     await pvp_repository.delete_user_data(callback.from_user.id)
@@ -135,7 +145,7 @@ async def confirm_delete_callback(
     if callback.message is not None:
         await callback.message.edit_text(
             "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, косметика, "
-            "настройки и активная сессия удалены."
+            "публичность, настройки и активная сессия удалены."
         )
 
 
