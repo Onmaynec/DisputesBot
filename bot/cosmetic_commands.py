@@ -11,7 +11,6 @@ from .cosmetics import (
     CosmeticKind,
     EquipStatus,
     PurchaseStatus,
-    cosmetic_by_id,
     cosmetics_by_kind,
 )
 from .progression_models import season_tier
