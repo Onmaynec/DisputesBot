@@ -1,27 +1,27 @@
 <div align="center">
 
-# ⚔️ DisputesBot v0.3
+# ⚔️ DisputesBot v0.4
 
 **Telegram-бот для тренировки дебатов, логики и критического мышления**
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![aiogram](https://img.shields.io/badge/aiogram-3.30.0-2CA5E0)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-profiles-336791)
 ![Redis](https://img.shields.io/badge/Redis-sessions-red)
-![Version](https://img.shields.io/badge/version-0.3.0-brightgreen)
+![Version](https://img.shields.io/badge/version-0.4.0-brightgreen)
 
 </div>
 
-## ✨ Новое в v0.3
+## ✨ Новое в v0.4
 
-- 📚 `/history` — последние сохранённые споры и турниры.
-- 🔄 `/rematch` — повтор последней темы в прежнем режиме.
-- 🔎 `/fallacies` — осторожный анализ логических ошибок с объяснением и исправлением.
-- 🏅 `/achievements` — девять достижений.
-- ⭐ XP, уровни и звания пользователя.
-- ⚡ текущая и лучшая серия побед.
-- 📊 средние оценки по логике, аргументации и креативности.
-- 💾 незавершённый спор архивируется при запуске нового.
-- 🧾 повторный `/judge` обновляет запись, а не создаёт дубликат.
+- 🐘 постоянные профили, статистика и история перенесены в PostgreSQL;
+- 🧱 Alembic управляет схемой базы данных;
+- 📥 импорт старого `data/leaderboard.json` версий 0.2–0.3;
+- 🔐 `/privacy` объясняет, какие данные сохраняются;
+- 🗑 `/delete_me` удаляет PostgreSQL-профиль и Redis-данные после подтверждения;
+- 📄 `/export` выгружает текущий или архивный спор в Markdown;
+- 🔁 транзакционные и идемпотентные обновления по `session_id`;
+- 🧪 PostgreSQL и миграции проверяются в GitHub Actions на Python 3.11 и 3.13.
 
 ## 🎮 Команды
 
@@ -36,70 +36,178 @@
 | `/tournament` | Турнир из трёх раундов |
 | `/history [1-10]` | Недавние сохранённые споры |
 | `/rematch` | Повторить последнюю тему |
+| `/export [current\|last\|N]` | Выгрузить спор в Markdown |
 | `/stats` | Расширенная статистика и прогресс |
 | `/achievements` | Открытые и закрытые достижения |
 | `/leaderboard` | Таблица лидеров |
+| `/privacy` | Политика хранения данных |
+| `/delete_me` | Безвозвратно удалить свои данные |
 | `/cancel` | Сохранить и завершить активный спор |
 
-## 🧠 Анализ логических ошибок
+## 🗄 Архитектура хранения
 
-`/fallacies` рассматривает только аргументы пользователя в активном споре. Модель получает строгую Pydantic-схему и должна отличать формальную ошибку от недостатка деталей или спорного мнения. Для каждого случая бот показывает:
+**Redis** хранит только оперативные данные:
 
-- название ошибки;
-- фрагмент аргумента;
-- объяснение проблемы;
-- улучшенную формулировку;
-- степень уверенности.
+- активный спор и его историю;
+- выбранную роль и сложность;
+- блокировки запросов и rate limiting;
+- временный выбор темы и подтверждение удаления.
 
-## 🏅 Прогресс
+**PostgreSQL** хранит постоянные данные:
 
-За обычные споры, турниры, победы и анализ ошибок начисляется XP. Каждые 100 XP повышают уровень. Достижения открываются за первый спор, турниры, победы, высокую оценку логики, идеальный результат, серию побед и регулярную работу над ошибками.
+- профиль пользователя и Telegram `user_id`;
+- турнирную статистику, XP, уровни и достижения;
+- счётчики логических ошибок;
+- до 30 последних архивов споров;
+- до 80 сообщений в одном архиве.
 
-## 💾 Совместимость данных
+Повторная запись одного `session_id` обновляет архив и не увеличивает статистику второй раз.
 
-Redis-ключи v0.2 не изменены. Старые сессии восстанавливаются с новыми полями по умолчанию.
-
-`data/leaderboard.json` остаётся совместимым: старые поля рейтинга сохраняются, а новые поля профиля добавляются автоматически при чтении или следующей записи. История ограничена тридцатью последними записями на пользователя, каждая запись хранит до восьмидесяти сообщений.
-
-## 🚀 Запуск
+## 🚀 Запуск через Docker Compose
 
 ```bash
 git clone https://github.com/Onmaynec/DisputesBot.git
 cd DisputesBot
 cp .env.example .env
-# заполните BOT_TOKEN и OPENAI_API_KEY
+```
+
+Заполните в `.env` как минимум:
+
+```dotenv
+BOT_TOKEN=telegram_bot_token
+OPENAI_API_KEY=openai_api_key
+DATABASE_URL=postgresql+asyncpg://disputesbot:disputesbot@postgres:5432/disputesbot
+REDIS_URL=redis://redis:6379/0
+```
+
+Запуск:
+
+```bash
 docker compose up -d --build
 ```
 
-Локальный запуск без Docker:
+Контейнер бота дождётся Redis и PostgreSQL, выполнит `alembic upgrade head`, затем запустит polling.
+
+## 🧰 Локальный запуск
 
 ```bash
 python -m venv .venv
-# Linux/macOS: source .venv/bin/activate
-# Windows: .venv\Scripts\activate
+```
+
+Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Установка и запуск:
+
+```bash
 pip install -e ".[dev]"
+alembic upgrade head
 python -m bot.main
 ```
 
-Для локального запуска Redis должен быть доступен по адресу из `REDIS_URL`.
+Для локального PostgreSQL укажите адрес с асинхронным драйвером:
+
+```dotenv
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/disputesbot
+```
+
+## ⬆️ Обновление с v0.3
+
+Перед обновлением сохраните JSON и резервную копию каталога данных:
+
+```bash
+cp data/leaderboard.json data/leaderboard.backup.json
+```
+
+Поднимите PostgreSQL и примените миграции:
+
+```bash
+docker compose up -d postgres
+docker compose run --rm disputes-bot alembic upgrade head
+```
+
+Проверьте старый JSON без записи:
+
+```bash
+docker compose run --rm disputes-bot \
+  python -m bot.import_json --path data/leaderboard.json --dry-run
+```
+
+Импортируйте данные:
+
+```bash
+docker compose run --rm disputes-bot \
+  python -m bot.import_json --path data/leaderboard.json
+```
+
+Импорт идемпотентен: повторный запуск обновляет существующие профили и архивы, не создавая дубликаты.
+
+После проверки запустите весь стек:
+
+```bash
+docker compose up -d --build
+```
+
+## 💾 Резервное копирование
+
+Создать дамп:
+
+```bash
+docker compose exec postgres pg_dump \
+  -U disputesbot -d disputesbot -Fc -f /tmp/disputesbot.dump
+docker compose cp postgres:/tmp/disputesbot.dump ./disputesbot.dump
+```
+
+Восстановить дамп в пустую базу:
+
+```bash
+docker compose cp ./disputesbot.dump postgres:/tmp/disputesbot.dump
+docker compose exec postgres pg_restore \
+  -U disputesbot -d disputesbot --clean --if-exists /tmp/disputesbot.dump
+```
+
+## 🔐 Приватность
+
+`/delete_me` создаёт одноразовое подтверждение на пять минут. После подтверждения удаляются:
+
+- профиль, статистика, достижения и архивы из PostgreSQL;
+- активная сессия, роль, сложность и временные ключи из Redis;
+- запись пользователя из таблицы лидеров.
+
+Операция идемпотентна: повторное удаление не вызывает ошибку.
 
 ## 🧪 Проверки
 
 ```bash
 ruff check .
+python -m compileall -q bot tests migrations
 pytest -q
-python -m compileall -q bot tests
+alembic upgrade head
 ```
 
-GitHub Actions выполняет Ruff и тесты на Python 3.11 и 3.13.
+CI запускает Ruff, Alembic и полный pytest на Python 3.11 и 3.13 с отдельным PostgreSQL service container.
 
-## 🔐 Ограничения
+## 📁 Основные модули
 
-- Не публикуйте Telegram и OpenAI API-ключи.
-- История спора передаётся модели для генерации, анализа и судейства.
-- Бот тренирует аргументацию и не заменяет профессиональную консультацию.
-- JSON-профили подходят для небольшого и среднего проекта; переход на PostgreSQL запланирован отдельной версией с миграцией данных.
+```text
+bot/database.py           SQLAlchemy models и async engine
+bot/sql_profile_store.py  транзакционный PostgreSQL repository
+bot/import_json.py        импорт JSON-профилей v0.2/v0.3
+bot/privacy.py            одноразовые подтверждения удаления
+bot/exporter.py           безопасный Markdown-экспорт
+bot/v04_handlers.py       /privacy, /delete_me и /export
+migrations/               Alembic migrations
+```
 
 ## 📄 Лицензия
 
-MIT.
+MIT — см. [LICENSE](LICENSE).

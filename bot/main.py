@@ -9,13 +9,16 @@ from aiogram.types import BotCommand
 from redis.asyncio import from_url
 
 from .config import Settings
+from .database import Database
 from .guard import RequestGuard
 from .handlers import router as core_router
 from .llm import JudgeEngine
-from .profile_store import ProfileStore
+from .privacy import PrivacyConfirmationStore
+from .sql_profile_store import SQLProfileStore
 from .storage import RedisStore
 from .v03_engine import V03DebateEngine
 from .v03_handlers import router as v03_router
+from .v04_handlers import router as v04_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -34,6 +37,9 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="stats", description="Расширенная статистика"),
             BotCommand(command="achievements", description="Достижения"),
             BotCommand(command="leaderboard", description="Таблица лидеров"),
+            BotCommand(command="export", description="Экспортировать спор в Markdown"),
+            BotCommand(command="privacy", description="Какие данные сохраняются"),
+            BotCommand(command="delete_me", description="Удалить мои данные"),
             BotCommand(command="cancel", description="Завершить активный спор"),
         ]
     )
@@ -49,6 +55,8 @@ async def main() -> None:
 
     redis = from_url(settings.redis_url)
     await redis.ping()
+    database = Database(settings.database_url, echo=settings.database_echo)
+    await database.ping()
     store = RedisStore(
         redis,
         session_ttl_seconds=settings.session_ttl_seconds,
@@ -61,7 +69,8 @@ async def main() -> None:
         lock_ttl_seconds=settings.request_lock_ttl_seconds,
         prefix=settings.redis_prefix,
     )
-    leaderboard = ProfileStore(settings.leaderboard_path, store)
+    leaderboard = SQLProfileStore(database.sessions, store)
+    privacy = PrivacyConfirmationStore(redis, prefix=settings.redis_prefix)
     engine = V03DebateEngine(
         api_key=settings.openai_api_key.get_secret_value(),
         model=settings.openai_model,
@@ -75,6 +84,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v04_router)
     dispatcher.include_router(v03_router)
     dispatcher.include_router(core_router)
     await set_commands(bot)
@@ -87,6 +97,7 @@ async def main() -> None:
             engine=engine,
             judge_engine=judge_engine,
             guard=guard,
+            privacy=privacy,
             settings=settings,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
@@ -94,6 +105,7 @@ async def main() -> None:
         await engine.close()
         await judge_engine.close()
         await store.close()
+        await database.close()
         await bot.session.close()
 
 

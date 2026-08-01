@@ -11,6 +11,24 @@ jobs:
       matrix:
         python-version: ["3.11", "3.13"]
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: disputesbot_test
+          POSTGRES_USER: disputesbot
+          POSTGRES_PASSWORD: disputesbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U disputesbot -d disputesbot_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://disputesbot:disputesbot@localhost:5432/disputesbot_test
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,5 +39,7 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Ruff
         run: ruff check .
+      - name: Migrations
+        run: alembic upgrade head
       - name: Tests
         run: pytest -q

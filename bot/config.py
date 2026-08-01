@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     openai_judge_model: str | None = None
     openai_base_url: str | None = None
     redis_url: str = "redis://localhost:6379/0"
+    database_url: str = (
+        "postgresql+asyncpg://disputesbot:disputesbot@localhost:5432/disputesbot"
+    )
+    database_echo: bool = False
     redis_prefix: str = "disputesbot"
     session_ttl_seconds: int = 604_800
     leaderboard_path: Path = Path("data/leaderboard.json")
