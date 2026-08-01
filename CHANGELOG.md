@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.8.0 — 2026-08-01
+
+### Added
+
+- Seasonal PvP cosmetic shop powered by existing progression tokens.
+- Eight catalog items: four badges and four public titles.
+- `/shop`, `/buy`, `/inventory`, `/equip` and `/unequip` commands.
+- `/pvp_profile` public card with Elo, season tier, record and equipped cosmetics.
+- Separate seasonal inventory and loadout tables.
+- Alembic migration `0005_cosmetics`.
+
+### Reliability
+
+- Purchases lock the user profile and progression wallet in one transaction.
+- Duplicate purchases are idempotent and never charge tokens twice.
+- Season-point requirements are checked server-side before token deduction.
+- A first item in each slot is automatically equipped; later loadout changes are explicit.
+- Cosmetic rewards never modify matchmaking, judging, match outcomes or Elo.
+
+### Privacy and compatibility
+
+- Inventory and loadouts use `ON DELETE CASCADE` with the user profile.
+- Cosmetics contain catalog IDs only and store no debate text or opponent data.
+- Existing v0.7 wallets and token balances remain compatible.
+- No new runtime dependency is required.
+
 ## 0.7.0 — 2026-08-01
 
 ### Added
