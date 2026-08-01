@@ -38,13 +38,18 @@ async def duel_status_command(
         return
     current = match.participant(match.current_user_id) if match.current_user_id else None
     opponent = match.opponent(message.from_user.id)
+    remaining = match.seconds_until_deadline()
+    deadline = "нет" if remaining is None else f"около {remaining} сек."
+    rating_mode = "рейтинговый" if match.rated_hint else "без изменения Elo"
     await message.answer(
         "⚔️ Состояние дуэли\n\n"
         f"Тема: {match.topic}\n"
         f"Позиция: {match.participant(message.from_user.id).stance.value}\n"
         f"Ваши аргументы: {match.argument_count(message.from_user.id)}/3\n"
         f"Аргументы оппонента: {match.argument_count(opponent.user_id)}/3\n"
-        f"Сейчас ходит: {current.display_name if current else 'судья'}"
+        f"Сейчас ходит: {current.display_name if current else 'судья'}\n"
+        f"Дедлайн хода: {deadline}\n"
+        f"Режим рейтинга: {rating_mode}"
     )
 
 

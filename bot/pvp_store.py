@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -22,6 +22,9 @@ class PvPBusyError(RuntimeError):
     pass
 
 
+PairAllowed = Callable[[int, int], Awaitable[bool]]
+
+
 class PvPStore:
     def __init__(
         self,
@@ -32,6 +35,8 @@ class PvPStore:
         invitation_ttl_seconds: int = 600,
         queue_ttl_seconds: int = 1_800,
         lock_ttl_seconds: int = 15,
+        turn_timeout_seconds: int = 3_600,
+        pair_allowed: PairAllowed | None = None,
     ) -> None:
         self.redis = redis
         self.prefix = prefix
@@ -39,6 +44,8 @@ class PvPStore:
         self.invitation_ttl_seconds = invitation_ttl_seconds
         self.queue_ttl_seconds = queue_ttl_seconds
         self.lock_ttl_seconds = lock_ttl_seconds
+        self.turn_timeout_seconds = turn_timeout_seconds
+        self.pair_allowed = pair_allowed
 
     def _key(self, kind: str, value: str | int | None = None) -> str:
         base = f"{self.prefix}:pvp:{kind}"
@@ -52,11 +59,13 @@ class PvPStore:
     async def get_match(self, match_id: str) -> PvPMatch | None:
         raw = await self.redis.get(self._key("match", match_id))
         if raw is None:
+            await self.redis.srem(self._key("active"), match_id)
             return None
         try:
             return PvPMatch.model_validate_json(self._decode(raw))
         except ValueError:
             await self.redis.delete(self._key("match", match_id))
+            await self.redis.srem(self._key("active"), match_id)
             return None
 
     async def get_match_for_user(self, user_id: int) -> PvPMatch | None:
@@ -84,6 +93,7 @@ class PvPStore:
             payload,
             ex=self.match_ttl_seconds,
         )
+        await self.redis.sadd(self._key("active"), match.match_id)
         for user_id in (match.pro.user_id, match.con.user_id):
             await self.redis.set(
                 self._key("user", user_id),
@@ -99,9 +109,13 @@ class PvPStore:
         topic: str,
         season: str,
         first_is_pro: bool | None = None,
+        source_match_id: str | None = None,
+        rated_hint: bool = True,
     ) -> PvPMatch:
         if first.user_id == second.user_id:
             raise ValueError("Cannot create a PvP match with the same user")
+        if not await self._is_pair_allowed(first.user_id, second.user_id):
+            raise PvPBusyError("Эта пара недоступна из-за блокировки")
         if first_is_pro is None:
             first_is_pro = secrets.randbelow(2) == 0
         pro_user, con_user = (first, second) if first_is_pro else (second, first)
@@ -120,7 +134,10 @@ class PvPStore:
                 season=season,
                 pro=PvPParticipant(**pro_user.model_dump(), stance=Stance.PRO),
                 con=PvPParticipant(**con_user.model_dump(), stance=Stance.CON),
+                source_match_id=source_match_id,
+                rated_hint=rated_hint,
             )
+            match.renew_deadline(self.turn_timeout_seconds)
             await self.save_match(match)
             return match
 
@@ -139,6 +156,7 @@ class PvPStore:
             if raw is not None and self._decode(raw) == match.match_id:
                 keys.append(index_key)
         await self.redis.delete(*keys)
+        await self.redis.srem(self._key("active"), match.match_id)
 
     async def create_invitation(
         self,
@@ -146,11 +164,26 @@ class PvPStore:
         *,
         topic: str,
         season: str,
+        target_user_id: int | None = None,
+        source_match_id: str | None = None,
+        rated_hint: bool = True,
     ) -> PvPInvitation:
+        if target_user_id is not None and not await self._is_pair_allowed(
+            inviter.user_id,
+            target_user_id,
+        ):
+            raise PvPBusyError("Персональное приглашение запрещено блокировкой")
         previous = await self.redis.get(self._key("invite-user", inviter.user_id))
         if previous is not None:
             await self.redis.delete(self._key("invite", self._decode(previous)))
-        invitation = PvPInvitation(inviter=inviter, topic=topic, season=season)
+        invitation = PvPInvitation(
+            inviter=inviter,
+            topic=topic,
+            season=season,
+            target_user_id=target_user_id,
+            source_match_id=source_match_id,
+            rated_hint=rated_hint,
+        )
         await self.redis.set(
             self._key("invite", invitation.token),
             invitation.model_dump_json(),
@@ -214,29 +247,39 @@ class PvPStore:
             now = datetime.now(UTC)
             minimum_time = now - timedelta(seconds=self.queue_ttl_seconds)
             filtered: list[PvPQueueEntry] = []
+            selected: PvPQueueEntry | None = None
             for item in queue:
                 if item.queued_at < minimum_time:
                     continue
                 if item.participant.user_id == entry.participant.user_id:
                     continue
                 if item.season != entry.season:
+                    filtered.append(item)
                     continue
                 if await self.get_match_for_user(item.participant.user_id) is not None:
                     continue
-                filtered.append(item)
+                if not await self._is_pair_allowed(
+                    item.participant.user_id,
+                    entry.participant.user_id,
+                ):
+                    filtered.append(item)
+                    continue
+                if selected is None:
+                    selected = item
+                else:
+                    filtered.append(item)
 
-            if filtered:
-                opponent = filtered.pop(0)
+            if selected is not None:
                 await self._save_queue(filtered)
                 try:
                     return await self.create_match(
-                        opponent.participant,
+                        selected.participant,
                         entry.participant,
-                        topic=opponent.topic,
+                        topic=selected.topic,
                         season=entry.season,
                     )
                 except PvPBusyError:
-                    filtered.append(opponent)
+                    filtered.append(selected)
                     filtered.append(entry)
                     await self._save_queue(filtered)
                     raise
@@ -256,7 +299,7 @@ class PvPStore:
                 await self._save_queue(remaining)
             return changed
 
-    async def delete_user_data(self, user_id: int) -> None:
+    async def clear_pending(self, user_id: int) -> None:
         for _ in range(3):
             try:
                 await self.leave_queue(user_id)
@@ -269,10 +312,28 @@ class PvPStore:
                 self._key("invite", self._decode(invite_token)),
                 self._key("invite-user", user_id),
             )
+
+    async def delete_user_data(self, user_id: int) -> None:
+        await self.clear_pending(user_id)
         match = await self.get_match_for_user(user_id)
         if match is not None:
             await self._delete_match_state(match)
         await self.redis.delete(self._key("user", user_id))
+
+    async def list_active_matches(self) -> list[PvPMatch]:
+        raw_ids = await self.redis.smembers(self._key("active"))
+        matches: list[PvPMatch] = []
+        for raw in raw_ids:
+            match = await self.get_match(self._decode(raw))
+            if match is not None:
+                matches.append(match)
+        return matches
+
+    async def active_count(self) -> int:
+        return len(await self.list_active_matches())
+
+    async def queue_count(self) -> int:
+        return len(await self._load_queue())
 
     async def _load_queue(self) -> list[PvPQueueEntry]:
         raw = await self.redis.get(self._key("queue"))
@@ -291,6 +352,11 @@ class PvPStore:
             ensure_ascii=False,
         )
         await self.redis.set(self._key("queue"), payload)
+
+    async def _is_pair_allowed(self, first_id: int, second_id: int) -> bool:
+        if self.pair_allowed is None:
+            return True
+        return await self.pair_allowed(first_id, second_id)
 
     @asynccontextmanager
     async def _user_locks(self, user_ids: tuple[int, int]) -> AsyncIterator[bool]:

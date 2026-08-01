@@ -15,6 +15,8 @@ router = Router(name="pvp-flow")
 
 def _rating_change_text(result: PvPRecordResult, user_id: int) -> str:
     entry = result.entry
+    if not entry.rated:
+        return f"Elo: без изменений ({entry.unrated_reason or 'нерейтинговый матч'})"
     if user_id == entry.pro_user_id:
         before, after = entry.pro_rating_before, entry.pro_rating_after
     else:
@@ -39,7 +41,7 @@ async def notify_result(bot: Bot, match: PvPMatch, result: PvPRecordResult) -> N
             f"Тема: {match.topic}\n"
             f"{_rating_change_text(result, user_id)}\n\n"
             f"Вердикт: {match.verdict_reason}\n\n"
-            "Рейтинг: /rating · история: /duel_history",
+            "Рейтинг: /rating · история: /duel_history · жалоба: /report",
         )
 
 
@@ -121,7 +123,11 @@ async def process_pvp_argument(
         if match is None:
             return True
         try:
-            match.add_argument(message.from_user.id, message.text)
+            match.add_argument(
+                message.from_user.id,
+                message.text,
+                turn_timeout_seconds=settings.pvp_turn_timeout_seconds,
+            )
         except ValueError as exc:
             await message.answer(f"Ход не принят: {exc}")
             return True
@@ -145,13 +151,15 @@ async def process_pvp_argument(
         return True
 
     opponent = match.opponent(message.from_user.id)
+    remaining = match.seconds_until_deadline()
+    deadline_text = f" На ответ осталось около {remaining} сек." if remaining else ""
     await message.answer(
         f"✅ Аргумент {actor_count}/3 принят. Теперь ходит {opponent.display_name}."
     )
     await message.bot.send_message(
         opponent.user_id,
         f"⚔️ Аргумент оппонента:\n{message.text}\n\nВаш ход "
-        f"({match.argument_count(opponent.user_id) + 1}/3).",
+        f"({match.argument_count(opponent.user_id) + 1}/3).{deadline_text}",
     )
     return True
 

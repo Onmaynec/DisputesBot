@@ -11,6 +11,7 @@ from aiogram.types import (
 )
 
 from .exporter import export_filename, render_archive_markdown, render_session_markdown
+from .moderation_repository import ModerationRepository
 from .privacy import PrivacyConfirmationStore
 from .profile_protocol import ProfileRepository
 from .pvp_repository import PvPRepository
@@ -54,12 +55,15 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 • Telegram user_id, username и отображаемое имя;
 • турнирная статистика, XP и достижения;
 • до 30 последних архивов споров;
-• сезонный PvP Elo и история завершённых дуэлей.
+• сезонный PvP Elo и история завершённых дуэлей;
+• пользовательский PvP-блок-лист;
+• жалобы на матчи и журнал их обработки.
 
 В Redis временно хранятся активный спор, PvP-матч, очередь, приглашения, роль,
-сложность, блокировки и rate limit.
+сложность, блокировки запросов и rate limit.
 Участник PvP видит имя и аргументы своего соперника. Команда /delete_me удаляет профиль,
-архивы, PvP-рейтинг, историю матчей, настройки и активные Redis-сессии."""
+архивы, PvP-рейтинг, историю матчей, блок-лист, настройки и активные Redis-сессии.
+Жалобы сохраняются как аудиторские записи, но связь с удалённым заявителем очищается."""
 
 
 @router.message(Command("privacy"))
@@ -100,6 +104,7 @@ async def confirm_delete_callback(
     leaderboard: ProfileRepository,
     pvp_store: PvPStore,
     pvp_repository: PvPRepository,
+    moderation_repository: ModerationRepository,
 ) -> None:
     token = (callback.data or "").split(":", maxsplit=2)[-1]
     if not await privacy.consume(callback.from_user.id, token):
@@ -109,6 +114,7 @@ async def confirm_delete_callback(
                 "⌛ Подтверждение устарело. Запустите /delete_me ещё раз."
             )
         return
+    await moderation_repository.anonymize_user(callback.from_user.id)
     await pvp_repository.delete_user_data(callback.from_user.id)
     await leaderboard.delete_user(callback.from_user.id)
     await pvp_store.delete_user_data(callback.from_user.id)

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .database import PvPMatchRow, PvPPlayerRow, UserProfileRow
@@ -39,8 +39,48 @@ class PvPRecordResult:
 
 
 class PvPRepository:
-    def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(
+        self,
+        sessions: async_sessionmaker[AsyncSession],
+        *,
+        repeat_window_seconds: int = 86_400,
+        max_rated_pair_matches: int = 3,
+    ) -> None:
         self.sessions = sessions
+        self.repeat_window_seconds = repeat_window_seconds
+        self.max_rated_pair_matches = max_rated_pair_matches
+
+    async def can_rate_pair(self, first_id: int, second_id: int, season: str) -> bool:
+        if self.max_rated_pair_matches <= 0:
+            return False
+        cutoff = datetime.now(UTC) - timedelta(seconds=self.repeat_window_seconds)
+        pair_key = self.pair_key(first_id, second_id)
+        low, high = sorted((first_id, second_id))
+        async with self.sessions() as db:
+            count = await db.scalar(
+                select(func.count(PvPMatchRow.match_id)).where(
+                    PvPMatchRow.season == season,
+                    PvPMatchRow.rated.is_(True),
+                    PvPMatchRow.ended_at >= cutoff,
+                    or_(
+                        PvPMatchRow.pair_key == pair_key,
+                        and_(
+                            PvPMatchRow.pair_key.is_(None),
+                            or_(
+                                and_(
+                                    PvPMatchRow.pro_user_id == low,
+                                    PvPMatchRow.con_user_id == high,
+                                ),
+                                and_(
+                                    PvPMatchRow.pro_user_id == high,
+                                    PvPMatchRow.con_user_id == low,
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+            )
+        return int(count or 0) < self.max_rated_pair_matches
 
     async def record_match(
         self,
@@ -48,8 +88,8 @@ class PvPRepository:
         *,
         judgement: PvPJudgement | None = None,
     ) -> PvPRecordResult:
-        if match.outcome not in {"judged", "draw", "forfeit"}:
-            raise ValueError("Only completed rated matches can be persisted")
+        if match.outcome not in {"judged", "draw", "forfeit", "timeout"}:
+            raise ValueError("Only completed matches can be persisted")
         if match.outcome in {"judged", "draw"} and judgement is None:
             raise ValueError("A judged match requires a structured judgement")
         if judgement is not None and judgement.winner_user_id != match.winner_user_id:
@@ -64,8 +104,15 @@ class PvPRepository:
             if existing is not None:
                 return PvPRecordResult(False, self._match_to_model(existing))
 
-            pro = await self._get_or_create_player(db, match.pro.user_id, match.season)
-            con = await self._get_or_create_player(db, match.con.user_id, match.season)
+            players: dict[int, PvPPlayerRow] = {}
+            for user_id in sorted((match.pro.user_id, match.con.user_id)):
+                players[user_id] = await self._get_or_create_player(
+                    db,
+                    user_id,
+                    match.season,
+                )
+            pro = players[match.pro.user_id]
+            con = players[match.con.user_id]
 
             if match.winner_user_id is None:
                 pro_score = 0.5
@@ -76,11 +123,21 @@ class PvPRepository:
             else:
                 raise ValueError("Winner is not a participant")
 
-            change = calculate_elo(pro.rating, con.rating, pro_score)
+            rated = await self._can_rate_pair_in_transaction(
+                db,
+                match.pro.user_id,
+                match.con.user_id,
+                match.season,
+            )
             pro_before = pro.rating
             con_before = con.rating
-            pro.rating = change.rating_a_after
-            con.rating = change.rating_b_after
+            if rated:
+                change = calculate_elo(pro.rating, con.rating, pro_score)
+                pro.rating = change.rating_a_after
+                con.rating = change.rating_b_after
+                unrated_reason = None
+            else:
+                unrated_reason = "Лимит рейтинговых матчей этой пары за текущее окно."
             self._apply_game_result(pro, pro_score)
             self._apply_game_result(con, 1.0 - pro_score)
             now = datetime.now(UTC)
@@ -91,10 +148,13 @@ class PvPRepository:
                 match_id=match.match_id,
                 season=match.season,
                 topic=match.topic,
+                pair_key=self.pair_key(match.pro.user_id, match.con.user_id),
                 pro_user_id=match.pro.user_id,
                 con_user_id=match.con.user_id,
                 winner_user_id=match.winner_user_id,
                 outcome=match.outcome,
+                rated=rated,
+                unrated_reason=unrated_reason,
                 pro_rating_before=pro_before,
                 pro_rating_after=pro.rating,
                 con_rating_before=con_before,
@@ -180,6 +240,43 @@ class PvPRepository:
             ).all()
         return [self._match_to_model(row) for row in rows]
 
+    async def user_identity(self, user_id: int) -> PvPUser | None:
+        async with self.sessions() as db:
+            row = await db.get(UserProfileRow, user_id)
+            if row is None:
+                return None
+            return PvPUser(
+                user_id=row.user_id,
+                username=row.username,
+                display_name=row.display_name,
+            )
+
+    async def _can_rate_pair_in_transaction(
+        self,
+        db: AsyncSession,
+        first_id: int,
+        second_id: int,
+        season: str,
+    ) -> bool:
+        if self.max_rated_pair_matches <= 0:
+            return False
+        cutoff = datetime.now(UTC) - timedelta(seconds=self.repeat_window_seconds)
+        pair_key = self.pair_key(first_id, second_id)
+        count = await db.scalar(
+            select(func.count(PvPMatchRow.match_id)).where(
+                PvPMatchRow.season == season,
+                PvPMatchRow.rated.is_(True),
+                PvPMatchRow.ended_at >= cutoff,
+                PvPMatchRow.pair_key == pair_key,
+            )
+        )
+        return int(count or 0) < self.max_rated_pair_matches
+
+    @staticmethod
+    def pair_key(first_id: int, second_id: int) -> str:
+        low, high = sorted((first_id, second_id))
+        return f"{low}:{high}"
+
     @staticmethod
     async def _get_or_create_profile(
         db: AsyncSession,
@@ -241,7 +338,7 @@ class PvPRepository:
     @staticmethod
     def _match_to_model(row: PvPMatchRow) -> PvPMatchHistoryEntry:
         outcome = row.outcome
-        if outcome not in {"judged", "draw", "forfeit"}:
+        if outcome not in {"judged", "draw", "forfeit", "timeout"}:
             raise ValueError("Unknown stored PvP outcome")
         return PvPMatchHistoryEntry(
             match_id=row.match_id,
@@ -255,6 +352,8 @@ class PvPRepository:
             pro_rating_after=row.pro_rating_after,
             con_rating_before=row.con_rating_before,
             con_rating_after=row.con_rating_after,
+            rated=row.rated,
+            unrated_reason=row.unrated_reason,
             reason=row.reason,
             started_at=row.started_at,
             ended_at=row.ended_at,

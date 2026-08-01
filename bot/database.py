@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -32,10 +43,7 @@ class UserProfileRow(Base):
     best_total: Mapped[int] = mapped_column(Integer, default=0)
     average_total: Mapped[float] = mapped_column(Float, default=0.0)
     last_scores: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    score_totals: Mapped[dict[str, Any]] = mapped_column(
-        JSON,
-        default=lambda: {"logic": 0, "argumentation": 0, "creativity": 0},
-    )
+    score_totals: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     xp: Mapped[int] = mapped_column(Integer, default=0)
     level: Mapped[int] = mapped_column(Integer, default=1)
     current_streak: Mapped[int] = mapped_column(Integer, default=0)
@@ -110,6 +118,7 @@ class PvPMatchRow(Base):
     match_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     season: Mapped[str] = mapped_column(String(32), nullable=False)
     topic: Mapped[str] = mapped_column(Text, nullable=False)
+    pair_key: Mapped[str | None] = mapped_column(String(48), nullable=True)
     pro_user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
@@ -122,6 +131,8 @@ class PvPMatchRow(Base):
     )
     winner_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    rated: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    unrated_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pro_rating_before: Mapped[int] = mapped_column(Integer, nullable=False)
     pro_rating_after: Mapped[int] = mapped_column(Integer, nullable=False)
     con_rating_before: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -134,11 +145,59 @@ class PvPMatchRow(Base):
     ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class PvPBlockRow(Base):
+    __tablename__ = "pvp_blocks"
+
+    blocker_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    blocked_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=False,
+    )
+    blocked_label: Mapped[str] = mapped_column(String(255), default="Пользователь")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+
+
+class PvPReportRow(Base):
+    __tablename__ = "pvp_reports"
+
+    report_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    match_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    match_topic: Mapped[str] = mapped_column(Text, nullable=False)
+    reporter_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    opponent_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    category: Mapped[str] = mapped_column(String(24), nullable=False)
+    comment: Mapped[str] = mapped_column(String(500), default="")
+    status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)
+    moderator_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    moderation_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
 Index("ix_debate_archives_user_ended", DebateArchiveRow.user_id, DebateArchiveRow.ended_at)
 Index("ix_user_profiles_ranking", UserProfileRow.best_total, UserProfileRow.average_total)
 Index("ix_pvp_players_season_rating", PvPPlayerRow.season, PvPPlayerRow.rating)
 Index("ix_pvp_matches_pro_ended", PvPMatchRow.pro_user_id, PvPMatchRow.ended_at)
 Index("ix_pvp_matches_con_ended", PvPMatchRow.con_user_id, PvPMatchRow.ended_at)
+Index("ix_pvp_matches_pair_ended", PvPMatchRow.pair_key, PvPMatchRow.ended_at)
+Index("ix_pvp_blocks_blocked", PvPBlockRow.blocked_id)
+Index("ix_pvp_reports_status_created", PvPReportRow.status, PvPReportRow.created_at)
+Index("ix_pvp_reports_reporter_created", PvPReportRow.reporter_id, PvPReportRow.created_at)
 
 
 class Database:

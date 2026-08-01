@@ -11,6 +11,7 @@ from aiogram.types import (
 )
 
 from .config import Settings
+from .moderation_repository import ModerationRepository
 from .pvp_models import PvPMatch, PvPUser
 from .pvp_store import PvPBusyError, PvPStore
 from .storage import SessionStore
@@ -53,15 +54,24 @@ def _match_started_text(match: PvPMatch, user_id: int) -> str:
         if match.current_user_id == user_id
         else f"Первым ходит {opponent.display_name}."
     )
+    rating_text = (
+        "Матч рейтинговый."
+        if match.rated_hint
+        else "Матч сохранится в истории, но Elo не изменится из-за лимита пары."
+    )
+    remaining = match.seconds_until_deadline()
+    deadline_text = f"На ход даётся около {remaining} сек." if remaining else ""
     return (
         "⚔️ PvP-дуэль началась\n\n"
         f"Тема: {match.topic}\n"
         f"Ваша позиция: {participant.stance.value}\n"
         f"Оппонент: {opponent.display_name}\n"
-        f"Сезон: {match.season}\n\n"
+        f"Сезон: {match.season}\n"
+        f"{rating_text}\n\n"
         "У каждого по три аргумента, ходы строго чередуются.\n"
+        f"{deadline_text}\n"
         f"{turn}\n\n"
-        "Команды: /duel_status · /forfeit · /cancel_duel"
+        "Команды: /duel_status · /forfeit · /cancel_duel · /report"
     )
 
 
@@ -71,15 +81,16 @@ async def notify_match_started(bot, match: PvPMatch) -> None:
 
 
 @router.message(CommandStart())
-async def start_v05_command(message: Message) -> None:
+async def start_v06_command(message: Message) -> None:
     await message.answer(
-        "⚔️ Добро пожаловать в DisputesBot v0.5!\n\n"
-        "Теперь доступны рейтинговые PvP-дуэли между реальными пользователями.\n\n"
+        "⚔️ Добро пожаловать в DisputesBot v0.6!\n\n"
+        "PvP получил блок-лист, жалобы, дедлайны ходов, рематчи и защиту Elo.\n\n"
         "/duel [тема] — создать приглашение\n"
         "/queue [тема] — найти соперника\n"
-        "/rating — ваш Elo\n"
-        "/pvp_leaderboard — рейтинг сезона\n"
-        "/duel_history — история дуэлей\n\n"
+        "/rematch_duel — вызвать последнего соперника\n"
+        "/block, /unblock, /blocked — управление соперниками\n"
+        "/report, /my_reports — жалобы\n"
+        "/rating — ваш Elo\n\n"
         "Одиночный спор: /debate [тема]"
     )
 
@@ -126,6 +137,7 @@ async def accept_duel_callback(
     callback: CallbackQuery,
     pvp_store: PvPStore,
     store: SessionStore,
+    moderation_repository: ModerationRepository,
 ) -> None:
     token = (callback.data or "").rsplit(":", maxsplit=1)[-1]
     invitation = await pvp_store.get_invitation(token)
@@ -134,6 +146,18 @@ async def accept_duel_callback(
         return
     if invitation.inviter.user_id == callback.from_user.id:
         await callback.answer("Нельзя принять собственную дуэль", show_alert=True)
+        return
+    if (
+        invitation.target_user_id is not None
+        and invitation.target_user_id != callback.from_user.id
+    ):
+        await callback.answer("Это персональное приглашение другому пользователю", show_alert=True)
+        return
+    if not await moderation_repository.pair_allowed(
+        invitation.inviter.user_id,
+        callback.from_user.id,
+    ):
+        await callback.answer("Дуэль недоступна из-за блокировки", show_alert=True)
         return
     invitation = await pvp_store.consume_invitation(token)
     if invitation is None:
@@ -151,6 +175,8 @@ async def accept_duel_callback(
             _identity(callback.from_user),
             topic=invitation.topic,
             season=invitation.season,
+            source_match_id=invitation.source_match_id,
+            rated_hint=invitation.rated_hint,
         )
     except PvPBusyError as exc:
         await callback.answer(str(exc), show_alert=True)
