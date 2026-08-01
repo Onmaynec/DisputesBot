@@ -1,42 +1,39 @@
 # Changelog
 
-## 0.4.0 — 2026-08-01
+## 0.5.0 — 2026-08-01
 
 ### Added
 
-- Async SQLAlchemy repository for PostgreSQL profiles and debate archives.
-- Alembic configuration and initial database migration.
-- Idempotent v0.2/v0.3 JSON profile importer with dry-run mode.
-- `/privacy` and confirmed `/delete_me` flows.
-- `/export` for current and archived debates in Markdown.
-- PostgreSQL service and healthcheck in Docker Compose.
-- PostgreSQL migration checks in the Python 3.11/3.13 CI matrix.
+- Direct PvP duel invitations with inline acceptance.
+- Redis-backed matchmaking queue and active match restoration.
+- Strict turn-based PvP flow with three arguments per participant.
+- `/duel_status`, `/cancel_duel`, `/forfeit` and `/leave_queue`.
+- Independent anonymized A/B judging for human-vs-human debates.
+- Seasonal Elo ratings with an initial rating of 1000 and K-factor 32.
+- `/rating`, `/pvp_leaderboard` and `/duel_history`.
+- PostgreSQL tables for seasonal players and immutable PvP match results.
+- Alembic migration `0002_pvp`.
 
-### Changed
+### Reliability
 
-- Redis now stores only active and temporary state.
-- Persistent leaderboard, statistics, achievements and history use PostgreSQL.
-- Profile and archive updates are transactional and keyed by Telegram `user_id`/`session_id`.
+- A participant cannot be assigned to two active matches.
+- Match creation locks both user IDs in stable order.
+- Match judging has a dedicated distributed lock.
+- Repeated persistence of the same `match_id` is idempotent.
+- Elo changes are symmetric and sum to zero.
+- Old v0.4 Redis keys and solo-debate APIs remain compatible.
 
-### Compatibility
+## 0.4.0 — 2026-08-01
 
-- Existing Redis keys and active v0.3 sessions remain compatible.
-- `data/leaderboard.json` is supported as a one-time import source.
+- PostgreSQL profiles and debate archives.
+- Alembic and idempotent JSON import.
+- Privacy controls, account deletion and Markdown export.
+- PostgreSQL CI on Python 3.11 and 3.13.
 
 ## 0.3.0 — 2026-08-01
 
-### Added
-
-- Debate history, rematches and fallacy analysis.
-- XP, levels, titles and nine achievements.
-- Win streaks and criterion averages.
-- Backward-compatible JSON profiles.
+- Debate history, rematches, fallacy analysis, XP and achievements.
 
 ## 0.2.0 — 2026-08-01
 
-### Added
-
-- Redis-backed restoration of active debates and user preferences.
-- Per-user local and distributed request locks.
-- Redis-backed fixed-window rate limiting.
-- Strict Pydantic Structured Outputs and independent judging.
+- Redis sessions, request locks, rate limiting and independent judging.

@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 5
     rate_limit_window_seconds: int = 20
     request_lock_ttl_seconds: int = 90
+    pvp_season: str = "season-1"
+    pvp_match_ttl_seconds: int = 86_400
+    pvp_invitation_ttl_seconds: int = 600
+    pvp_queue_ttl_seconds: int = 1_800
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
