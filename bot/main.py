@@ -14,6 +14,7 @@ from .cosmetic_repository import CosmeticRepository
 from .database import Database
 from .guard import RequestGuard
 from .handlers import router as core_router
+from .league_repository import LeagueRepository
 from .llm import JudgeEngine
 from .moderation_repository import ModerationRepository
 from .privacy import PrivacyConfirmationStore
@@ -33,6 +34,7 @@ from .v06_handlers import router as v06_router
 from .v07_handlers import router as v07_router
 from .v08_handlers import router as v08_router
 from .v09_handlers import router as v09_router
+from .v10_handlers import router as v10_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -62,6 +64,9 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="cancel_duel", description="Отменить PvP до первого хода"),
             BotCommand(command="forfeit", description="Сдаться в PvP-дуэли"),
             BotCommand(command="rating", description="Личный PvP Elo"),
+            BotCommand(command="league", description="Моя рейтинговая лига"),
+            BotCommand(command="league_top", description="Таблица рейтинговых лиг"),
+            BotCommand(command="league_distribution", description="Распределение по лигам"),
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
             BotCommand(command="pvp_stats", description="Расширенная PvP-аналитика"),
@@ -123,6 +128,7 @@ async def main() -> None:
     )
     cosmetic_repository = CosmeticRepository(database.sessions)
     social_repository = SocialRepository(database.sessions)
+    league_repository = LeagueRepository(database.sessions)
     pvp_store = PvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -155,6 +161,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v10_router)
     dispatcher.include_router(v09_router)
     dispatcher.include_router(v08_router)
     dispatcher.include_router(v07_router)
@@ -190,6 +197,7 @@ async def main() -> None:
             progression_repository=progression_repository,
             cosmetic_repository=cosmetic_repository,
             social_repository=social_repository,
+            league_repository=league_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
