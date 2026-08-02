@@ -26,6 +26,7 @@ from .pvp_repository import PvPRepository
 from .pvp_timeout import run_timeout_sweeper
 from .ranked_pvp_store import RankedPvPStore
 from .ranked_reward_repository import RankedRewardRepository
+from .season_archive_repository import SeasonArchiveRepository
 from .social_repository import SocialRepository
 from .sql_profile_store import SQLProfileStore
 from .storage import RedisStore
@@ -41,6 +42,7 @@ from .v10_handlers import router as v10_router
 from .v11_handlers import router as v11_router
 from .v13_handlers import router as v13_router
 from .v14_handlers import router as v14_router
+from .v15_handlers import router as v15_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -77,6 +79,9 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="league_distribution", description="Распределение по лигам"),
             BotCommand(command="ranked_rewards", description="Награды рейтинговых лиг"),
             BotCommand(command="claim_ranked_rewards", description="Получить награды лиг"),
+            BotCommand(command="pvp_career", description="Карьера по PvP-сезонам"),
+            BotCommand(command="season_archive", description="Архив сезонных таблиц"),
+            BotCommand(command="hall_of_fame", description="Чемпионы PvP-сезонов"),
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
             BotCommand(command="pvp_stats", description="Расширенная PvP-аналитика"),
@@ -155,6 +160,7 @@ async def main() -> None:
         window_matches=settings.pvp_coach_window_matches,
     )
     ranked_reward_repository = RankedRewardRepository(database.sessions)
+    season_archive_repository = SeasonArchiveRepository(database.sessions)
     pvp_store = RankedPvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -191,6 +197,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v15_router)
     dispatcher.include_router(v14_router)
     dispatcher.include_router(v13_router)
     dispatcher.include_router(v11_router)
@@ -234,6 +241,7 @@ async def main() -> None:
             league_repository=league_repository,
             coaching_repository=coaching_repository,
             ranked_reward_repository=ranked_reward_repository,
+            season_archive_repository=season_archive_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
