@@ -64,19 +64,23 @@ jobs:
           from pathlib import Path
 
           version = os.environ["VERSION"]
-          lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
-          start = next(
-              index for index, line in enumerate(lines)
-              if line.startswith(f"## {version} ")
-          )
-          end = next(
-              (
-                  index for index in range(start + 1, len(lines))
-                  if lines[index].startswith("## ")
-              ),
-              len(lines),
-          )
-          notes = "\n".join(lines[start + 1 : end]).strip() + "\n"
+          versioned = Path("release-notes") / f"{version}.md"
+          if versioned.exists():
+              notes = versioned.read_text(encoding="utf-8").strip() + "\n"
+          else:
+              lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+              start = next(
+                  index for index, line in enumerate(lines)
+                  if line.startswith(f"## {version} ")
+              )
+              end = next(
+                  (
+                      index for index in range(start + 1, len(lines))
+                      if lines[index].startswith("## ")
+                  ),
+                  len(lines),
+              )
+              notes = "\n".join(lines[start + 1 : end]).strip() + "\n"
           Path("release-notes.md").write_text(notes, encoding="utf-8")
           PY
 

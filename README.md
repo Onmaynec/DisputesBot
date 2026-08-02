@@ -1,75 +1,59 @@
 <div align="center">
 
-# ⚔️ DisputesBot v0.19
+# ⚔️ DisputesBot v0.20
 
 **Telegram-бот для тренировки дебатов, логики и критического мышления**
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![aiogram](https://img.shields.io/badge/aiogram-3.30.0-2CA5E0)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-goals%20%26%20rewards-336791)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-season%20pass-336791)
 ![Redis](https://img.shields.io/badge/Redis-ranked%20matchmaking-red)
-![Version](https://img.shields.io/badge/version-0.19.0-brightgreen)
+![Version](https://img.shields.io/badge/version-0.20.0-brightgreen)
 
 </div>
 
-## ✨ Новое в v0.19
+## ✨ Новое в v0.20
 
-- 🎁 `/goal_rewards` — приватная доска наград сезонных целей;
-- ✅ `/claim_goal_rewards` — получить все доступные токены и season points;
-- 🔒 одна награда на метрику для каждого пользователя и сезона;
-- 🛡️ антифарм-пороги для Elo, побед, матчей, win rate, серий и судейских навыков;
-- ♻️ повторный claim полностью идемпотентен;
-- 🗄️ таблица `pvp_goal_reward_claims` и миграция `0010_goal_rewards`;
-- 📱 новые команды автоматически добавляются в Telegram command menu.
+- 🎟 `/season_pass` — приватный сезонный пропуск из семи уровней;
+- 🎁 `/claim_season_pass` — получить все разблокированные награды одной транзакцией;
+- 📈 уровни открываются на 100, 250, 500, 900, 1400, 2000 и 3000 season points;
+- 🔒 каждый уровень выдаёт награду один раз на пользователя и сезон;
+- ♻️ повторный claim идемпотентен, а новый прогресс оплачивает только новые уровни;
+- 🪙 пропуск начисляет только токены и не может сам открыть следующий уровень;
+- 🗄️ таблица `pvp_season_pass_claims` и миграция `0011_season_pass`;
+- 📝 release workflow поддерживает versioned notes в `release-notes/<version>.md`.
 
-Все возможности v0.18 сохранены: приватные сезонные цели, record books, season
-insights, архивы, ranked rewards, coaching, Elo-aware matchmaking, вызовы и косметика.
+Все функции v0.19 сохранены: награды сезонных целей, измеримые goals, record books,
+season insights, архивы, ranked rewards, coaching, Elo matchmaking, вызовы и косметика.
 
-## 🎁 Награды сезонных целей
+## 🎟 Сезонный пропуск
 
 ```text
-/goal_rewards
-/claim_goal_rewards
+/season_pass
+/claim_season_pass
 ```
 
-`/goal_rewards` показывает:
+| Уровень | Season points | Токены |
+|---|---:|---:|
+| 🌱 Новичок | 100 | 10 |
+| 🥉 Претендент | 250 | 15 |
+| 🥈 Челленджер | 500 | 25 |
+| 🥇 Ветеран | 900 | 35 |
+| 💎 Элита | 1400 | 50 |
+| 👑 Чемпион | 2000 | 70 |
+| 🏆 Легенда | 3000 | 100 |
 
-- активные, завершённые и уже полученные цели;
-- baseline, target и фактическую сложность цели;
-- размер награды в PvP-токенах и season points;
-- минимальный прирост, если цель слишком мала для награды;
-- текущий progression wallet.
+`/season_pass` показывает текущие season points, баланс токенов, прогресс каждого
+уровня, доступные награды и следующий milestone.
 
-`/claim_goal_rewards` сначала обновляет завершение целей из авторитетных Elo,
-сезонной статистики и сохранённых judge scores, затем одной PostgreSQL-транзакцией:
+`/claim_season_pass` блокирует профиль и progression wallet в одной PostgreSQL-
+транзакции, создаёт audit rows для всех новых уровней и добавляет только токены.
+Составной ключ `(user_id, season, tier_id)` исключает двойное начисление.
 
-1. блокирует профиль пользователя;
-2. блокирует сезонные цели и существующие claim-строки;
-3. блокирует progression wallet;
-4. создаёт claim для каждой подходящей метрики;
-5. добавляет токены и season points.
+Награды пропуска не добавляют season points, не меняют Elo, matchmaking, судейство
+или результат матча. Каждый новый PvP-сезон имеет отдельный прогресс и claim history.
 
-Составной ключ `(user_id, season, metric)` исключает двойное начисление. Повторное
-создание или повышение уже оплаченной метрики в том же сезоне не выдаёт новую награду.
-
-### Каталог наград
-
-| Метрика | Минимальный прирост | Токены | Season points |
-|---|---:|---:|---:|
-| Elo | +50 Elo | 25 | 40 |
-| Лига | переход к более высокой границе | 35 | 60 |
-| Победы | +3 | 20 | 30 |
-| Матчи | +5 | 15 | 25 |
-| Win rate | +5 п.п. | 25 | 40 |
-| Серия побед | +2 | 25 | 40 |
-| Logic | +0.5 | 30 | 45 |
-| Evidence | +0.5 | 30 | 45 |
-| Rebuttal | +0.5 | 30 | 45 |
-
-Маленькие цели остаются допустимыми как личные ориентиры, но не создают claimable
-reward. Цели по лиге считаются значимыми, когда target выше baseline Elo.
-
-## 🎯 Сезонные цели
+## 🎯 Сезонные цели и награды
 
 ```text
 /goals
@@ -84,14 +68,18 @@ reward. Цели по лиге считаются значимыми, когда
 /set_goal rebuttal 8.0
 /delete_goal elo
 /goal_suggest
+/goal_rewards
+/claim_goal_rewards
 ```
 
 Одновременно можно держать до пяти активных целей. Completion фиксируется навсегда:
-последующее падение Elo, win rate или среднего навыка не отменяет достигнутую цель.
-Win-rate требует минимум пять матчей, а skill-goals — минимум три корректно оценённых
-матча. Рекомендации детерминированы и не вызывают OpenAI.
+падение Elo, win rate или среднего навыка не отменяет достигнутую цель.
 
-## 📊 Итоги и рекорды
+Goal rewards используют антифарм-пороги и могут начислять токены и season points.
+Одна метрика оплачивается только один раз за сезон. Season-pass rewards используют
+уже накопленные points и начисляют только токены.
+
+## 📊 Итоги, архивы и рекорды
 
 ```text
 /season_recap [season]
@@ -104,17 +92,14 @@ Win-rate требует минимум пять матчей, а skill-goals —
 /hall_of_fame
 ```
 
-- `season_recap` — приватный полный отчёт сезона;
-- `compare_seasons` — сравнение двух сезонов пользователя;
-- `career_records` — лучшие сезонные показатели;
-- `pvp_records` — приватные рекорды отдельных матчей и соперников;
-- `season_records` — публичные агрегированные рекорды сезона;
-- `pvp_career` — карьера по сохранённым сезонам;
-- `season_archive` — исторические таблицы;
-- `hall_of_fame` — чемпионы сезонов.
+- приватные итоги и сравнения сезонов;
+- карьерные рекорды и Elo-пути;
+- персональные матчевые рекорды;
+- публичные агрегированные рекорды сезона;
+- исторические standings и чемпионы.
 
 Публичные представления не раскрывают темы, match ID, аргументы, стенограммы,
-вердикты или judge score payload.
+вердикты или judge-score payload.
 
 ## 🏆 Ranked PvP
 
@@ -132,7 +117,6 @@ Win-rate требует минимум пять матчей, а skill-goals —
 
 Первые пять матчей считаются placement. Ranked matchmaking расширяет допустимый Elo
 диапазон по мере ожидания и не смешивает placement-игроков с откалиброванными.
-Ranked rewards выдаются один раз за достигнутые дивизионы и не зависят от goal rewards.
 
 ## 🎓 Приватный coaching
 
@@ -181,6 +165,8 @@ Coaching использует сохранённые logic, evidence и rebuttal
 /daily_claim
 /season
 /season_top
+/season_pass
+/claim_season_pass
 /shop
 /buy ITEM_ID
 /inventory
@@ -188,92 +174,92 @@ Coaching использует сохранённые logic, evidence и rebuttal
 /unequip title|badge
 ```
 
-Daily, ranked rewards и goal rewards используют общий сезонный progression wallet.
-Косметика и любые награды не меняют Elo, matchmaking, judge verdict или исход матча.
+Daily quests, ranked rewards, goal rewards и season pass используют общий сезонный
+progression wallet. Косметика и награды не меняют PvP Elo или judge verdict.
 
-## 🔐 Приватность
+## 🚀 Запуск
 
-Goal reward claim хранит только:
+Требования:
 
-- Telegram user ID;
-- season ID;
-- фиксированный metric ID;
-- числовые baseline и target;
-- reward tokens и reward points;
-- время completion и claim.
-
-Темы матчей, аргументы, стенограммы, verdict reason и judge score payload в claim
-не копируются. `/goal_rewards` доступна только владельцу аккаунта.
-
-`/delete_me` удаляет профиль, архивы, PvP-рейтинг и матчи, progression wallet,
-daily/ranked/goal reward claims, сезонные цели, косметику, публичность, вызовы,
-blocklist, очереди и активные Redis-сессии. Reward claims используют
-`ON DELETE CASCADE`.
-
-## 🗄️ Хранилища
-
-### PostgreSQL
-
-Профили, архивы, сезонный Elo, завершённые матчи, judge scores, progression wallets,
-daily claims, ranked rewards, goals, goal reward claims, косметика, profile visibility,
-вызовы, blocklist и moderation audit.
-
-### Redis
-
-Активные споры и PvP-матчи, приглашения, обычная и ranked queue, временные Elo-снимки,
-turn deadlines, request locks, rate limit и подтверждения удаления.
-
-## ⚙️ Установка
+- Python 3.11+;
+- PostgreSQL;
+- Redis;
+- Telegram bot token;
+- OpenAI-compatible API key.
 
 ```bash
 git clone https://github.com/Onmaynec/DisputesBot.git
 cd DisputesBot
-cp .env.example .env
+python -m venv .venv
 ```
 
-Заполните минимум `BOT_TOKEN` и `OPENAI_API_KEY`.
+Windows:
+
+```powershell
+.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+```
+
+Linux/macOS:
 
 ```bash
-docker compose up -d postgres redis
+source .venv/bin/activate
 pip install -e ".[dev]"
+```
+
+Создайте `.env` на основе `.env.example`, затем примените миграции и запустите бота:
+
+```bash
 alembic upgrade head
 python -m bot.main
 ```
 
-Полный Docker-запуск:
-
-```bash
-docker compose up --build -d
-```
-
-## ⬆️ Обновление с v0.18
-
-```bash
-git pull
-pip install -e ".[dev]"
-alembic upgrade head
-```
-
-v0.19 добавляет миграцию `0010_goal_rewards`. Существующие цели, Elo, матчи,
-кошельки, ranked rewards и косметика не изменяются.
-
-## 🧪 Проверки
+## ✅ Проверки
 
 ```bash
 ruff check .
-python -m compileall -q bot tests migrations
-alembic upgrade head
-pytest -q
+python -m compileall bot tests
+pytest
 ```
 
-GitHub Actions проверяет Python 3.11 и 3.13 с PostgreSQL 17.
+CI выполняет install, Ruff, compileall, полную Alembic-цепочку и pytest на Python
+3.11 и 3.13 с PostgreSQL 17.
+
+## 🔐 Приватность
+
+Season-pass claim хранит только:
+
+- Telegram user ID;
+- season ID;
+- фиксированный tier ID;
+- требование по season points;
+- размер token reward;
+- balance season points в момент claim;
+- время claim.
+
+Темы, match ID, аргументы, стенограммы, verdict reason и judge-score payload в claim
+не копируются. `/season_pass` доступна только владельцу аккаунта.
+
+`/delete_me` удаляет профиль, архивы, PvP-рейтинг и матчи, progression wallet,
+daily/ranked/goal/season-pass claims, сезонные цели, косметику, публичность, вызовы,
+blocklist, очереди и активные Redis-сессии. Claim tables используют
+`ON DELETE CASCADE`.
+
+## 🗄️ Хранилища
+
+**PostgreSQL:** профили, архивы, сезонный Elo, завершённые матчи, judge scores,
+progression wallets, daily claims, ranked rewards, goals, goal rewards, season-pass
+claims, косметика, profile visibility, challenges, blocklist и moderation audit.
+
+**Redis:** активные дебаты и PvP-матчи, очереди, приглашения, locks, rate limits,
+deadlines и временные подтверждения приватных операций.
 
 ## 📦 Релизы
 
-После merge в `main` workflow `.github/workflows/release.yml` читает версию из
-`pyproject.toml`, собирает wheel и source distribution, извлекает notes из
-`CHANGELOG.md`, создаёт тег `vX.Y.Z` и публикует GitHub Release.
+Push в `main` запускает release workflow. Версия читается из `pyproject.toml`, wheel и
+source distribution собираются автоматически, а notes берутся из
+`release-notes/<version>.md` или, для старых версий, из `CHANGELOG.md`.
 
 ## 📄 Лицензия
 
-MIT
+MIT.
