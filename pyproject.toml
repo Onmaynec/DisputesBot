@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "disputes-bot"
-version = "0.12.0"
-description = "Telegram debate trainer with Elo leagues and widening ranked matchmaking"
+version = "0.13.0"
+description = "Telegram debate trainer with ranked PvP matchmaking and private skill coaching"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
