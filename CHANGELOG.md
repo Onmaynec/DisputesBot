@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.12.0 — 2026-08-02
+
+### Added
+
+- `/ranked_queue` for Elo-aware seasonal matchmaking.
+- `/queue_status` with mode, waiting time, topic and current ranked Elo window.
+- Separate open and ranked Redis queue modes without mixing participants.
+- Deterministic widening search window controlled by four environment settings.
+- Ranked candidate selection by smallest Elo difference, then waiting time and user ID.
+
+### Reliability
+
+- Placement players are matched only with other placement players.
+- Existing serialized queue entries remain valid and default to the open queue mode.
+- The oldest participant's search window widens in fixed steps and is capped.
+- Blocklist, active-match locks, queue TTL and single-player queue replacement remain enforced.
+- Failed match creation restores both participants to the queue.
+- Ordinary `/queue` behavior remains first-waiting-first while ranked matching prefers Elo proximity.
+
+### Privacy and compatibility
+
+- Ranked queue metadata exists only in Redis and expires with the existing queue TTL.
+- The temporary snapshot contains mode, current Elo, completed-game count, topic and enqueue time.
+- No PostgreSQL table, Alembic migration or runtime dependency is introduced.
+- `/leave_queue` and `/delete_me` remove both open and ranked queue entries.
+- Existing v0.11 leagues, v0.10 challenges and release automation remain compatible.
+
 ## 0.11.0 — 2026-08-02
 
 ### Added
