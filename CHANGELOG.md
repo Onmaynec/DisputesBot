@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.14.0 — 2026-08-02
+
+### Added
+
+- `/pvp_career` with cross-season record, win rate, final Elo, peak Elo and rank.
+- `/season_archive [season]` with discoverable historical season standings.
+- `/hall_of_fame` with one deterministic champion per retained PvP season.
+- Per-season starting Elo, net Elo change and highest achieved Elo reconstruction.
+- Current-season markers in archive and Hall of Fame views.
+
+### Reliability
+
+- Career peaks are reconstructed from stored before/after Elo values and the current player row.
+- Historical standings reuse the same stable ordering as the live leaderboard.
+- Season discovery is ordered by latest player activity and capped to bounded result sets.
+- Invalid or unknown season names return a safe empty result.
+- Career aggregation reads only the requesting user's player rows and participant matches.
+- Archive commands never read match transcripts, arguments or judge score payloads.
+
+### Privacy and compatibility
+
+- No new table, Alembic migration, runtime dependency or background task is introduced.
+- Career, archive and Hall of Fame views are computed from existing `pvp_players`, `pvp_matches` and public profile labels.
+- Deleting a profile removes its source rows and therefore removes it from career and archive views.
+- Existing v0.13 coaching, v0.12 ranked matchmaking, v0.11 leagues and v0.10 challenges remain compatible.
+
 ## 0.13.0 — 2026-08-02
 
 ### Added
