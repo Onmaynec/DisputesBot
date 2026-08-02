@@ -1,7 +1,6 @@
 import json
 import urllib.request
 
-
 RELEASE_API = (
     "https://api.github.com/repos/Onmaynec/DisputesBot/releases/tags/v0.10.0"
 )
