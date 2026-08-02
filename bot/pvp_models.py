@@ -17,6 +17,11 @@ class PvPStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class PvPQueueMode(StrEnum):
+    OPEN = "open"
+    RANKED = "ranked"
+
+
 class PvPUser(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -229,6 +234,9 @@ class PvPQueueEntry(BaseModel):
     participant: PvPUser
     topic: str = Field(min_length=1, max_length=300)
     season: str = Field(min_length=1, max_length=32)
+    mode: PvPQueueMode = PvPQueueMode.OPEN
+    rating: int = Field(default=1000, ge=0, le=5000)
+    games: int = Field(default=0, ge=0)
     queued_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
