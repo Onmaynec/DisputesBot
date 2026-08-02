@@ -28,6 +28,7 @@ from .pvp_timeout import run_timeout_sweeper
 from .ranked_pvp_store import RankedPvPStore
 from .ranked_reward_repository import RankedRewardRepository
 from .season_archive_repository import SeasonArchiveRepository
+from .season_goal_repository import SeasonGoalRepository
 from .season_insight_repository import SeasonInsightRepository
 from .social_repository import SocialRepository
 from .sql_profile_store import SQLProfileStore
@@ -47,6 +48,7 @@ from .v14_handlers import router as v14_router
 from .v15_handlers import router as v15_router
 from .v16_handlers import router as v16_router
 from .v17_handlers import router as v17_router
+from .v18_handlers import router as v18_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -91,6 +93,10 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="career_records", description="Лучшие показатели сезонов"),
             BotCommand(command="pvp_records", description="Матчевые PvP-рекорды"),
             BotCommand(command="season_records", description="Публичные рекорды сезона"),
+            BotCommand(command="goals", description="Мои сезонные PvP-цели"),
+            BotCommand(command="set_goal", description="Создать или изменить PvP-цель"),
+            BotCommand(command="delete_goal", description="Удалить сезонную PvP-цель"),
+            BotCommand(command="goal_suggest", description="Рекомендованные PvP-цели"),
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
             BotCommand(command="pvp_stats", description="Расширенная PvP-аналитика"),
@@ -172,6 +178,7 @@ async def main() -> None:
     season_archive_repository = SeasonArchiveRepository(database.sessions)
     season_insight_repository = SeasonInsightRepository(database.sessions)
     pvp_record_repository = PvPRecordRepository(database.sessions)
+    season_goal_repository = SeasonGoalRepository(database.sessions)
     pvp_store = RankedPvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -208,6 +215,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v18_router)
     dispatcher.include_router(v17_router)
     dispatcher.include_router(v16_router)
     dispatcher.include_router(v15_router)
@@ -257,6 +265,7 @@ async def main() -> None:
             season_archive_repository=season_archive_repository,
             season_insight_repository=season_insight_repository,
             pvp_record_repository=pvp_record_repository,
+            season_goal_repository=season_goal_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
