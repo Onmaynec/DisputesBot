@@ -10,6 +10,7 @@ from aiogram.types import BotCommand
 from redis.asyncio import from_url
 
 from .challenge_repository import ChallengeRepository
+from .coaching_repository import CoachingRepository
 from .config import Settings
 from .cosmetic_repository import CosmeticRepository
 from .database import Database
@@ -37,6 +38,7 @@ from .v08_handlers import router as v08_router
 from .v09_handlers import router as v09_router
 from .v10_handlers import router as v10_router
 from .v11_handlers import router as v11_router
+from .v13_handlers import router as v13_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -74,6 +76,8 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
             BotCommand(command="pvp_stats", description="Расширенная PvP-аналитика"),
+            BotCommand(command="match_review", description="Разбор последнего PvP-матча"),
+            BotCommand(command="pvp_coach", description="Тренд PvP-навыков"),
             BotCommand(command="daily", description="Ежедневные PvP-задания"),
             BotCommand(command="daily_claim", description="Получить награды заданий"),
             BotCommand(command="season", description="Сезонный прогресс"),
@@ -142,6 +146,10 @@ async def main() -> None:
         ttl_hours=settings.pvp_challenge_ttl_hours,
     )
     league_repository = LeagueRepository(database.sessions)
+    coaching_repository = CoachingRepository(
+        database.sessions,
+        window_matches=settings.pvp_coach_window_matches,
+    )
     pvp_store = RankedPvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -178,6 +186,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v13_router)
     dispatcher.include_router(v11_router)
     dispatcher.include_router(v10_router)
     dispatcher.include_router(v09_router)
@@ -217,6 +226,7 @@ async def main() -> None:
             social_repository=social_repository,
             challenge_repository=challenge_repository,
             league_repository=league_repository,
+            coaching_repository=coaching_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:

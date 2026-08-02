@@ -2,12 +2,12 @@
 
 ## About
 
-> ⚔️ AI-тренер дебатов и безопасных PvP-дуэлей в Telegram: сезонный Elo, рейтинговые лиги, персональные вызовы, daily-задания, косметика и модерация.
+> ⚔️ AI-тренер дебатов и безопасных PvP-дуэлей в Telegram: Elo-matchmaking, рейтинговые лиги, приватный skill coaching, вызовы и модерация.
 
 ## English About
 
-> ⚔️ Telegram AI debate trainer with moderated PvP, seasonal Elo leagues, durable challenges, daily quests, cosmetics and moderation.
+> ⚔️ Telegram AI debate trainer with Elo matchmaking, ranked leagues, private skill coaching, durable challenges and moderation.
 
 ## Suggested topics
 
-`telegram-bot` · `aiogram` · `python` · `openai` · `postgresql` · `redis` · `sqlalchemy` · `alembic` · `elo-rating` · `ranked-leagues` · `matchmaking` · `pvp` · `challenges` · `gamification` · `daily-quests` · `cosmetics` · `moderation` · `debate` · `education` · `asyncio`
+`telegram-bot` · `aiogram` · `python` · `openai` · `postgresql` · `redis` · `sqlalchemy` · `alembic` · `elo-rating` · `ranked-leagues` · `matchmaking` · `pvp` · `coaching` · `analytics` · `challenges` · `gamification` · `daily-quests` · `cosmetics` · `moderation` · `debate` · `education` · `asyncio`
