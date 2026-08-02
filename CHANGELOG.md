@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.10.0 — 2026-08-02
+
+### Added
+
+- Durable personal PvP challenges through `/challenge`.
+- PostgreSQL-backed `/challenges` inbox and outbox.
+- `/accept_challenge`, `/decline_challenge` and `/cancel_challenge` lifecycle commands.
+- Reply-based targeting and explicit Telegram user ID targeting.
+- Configurable challenge expiration through `PVP_CHALLENGE_TTL_HOURS`.
+- PostgreSQL table `pvp_challenges` and migration `0007_challenges`.
+- Automated tagged GitHub Releases with wheel and source distribution assets.
+
+### Reliability
+
+- One active challenge is allowed per pair and season in either direction.
+- An `accepting` reservation prevents duplicate concurrent match creation.
+- Stale acceptance reservations recover automatically after five minutes.
+- Match creation reuses the existing Redis user locks, blocklist checks and PvP engine.
+- Failed match startup releases the challenge back to pending state.
+- Expired challenges are finalized lazily during inbox and lifecycle operations.
+
+### Privacy and compatibility
+
+- Blocklist checks apply during challenge creation and acceptance.
+- Challenges store only participant IDs, season, topic, status and timestamps.
+- `/delete_me` removes incoming and outgoing challenges before profile deletion.
+- Existing v0.9 profiles, social settings, cosmetics, progression and matches remain compatible.
+- No new runtime dependency is required.
+
 ## 0.9.0 — 2026-08-01
 
 ### Added
