@@ -1,5 +1,5 @@
 import json
-from urllib.request import Request, urlopen
+import urllib.request
 
 
 RELEASE_API = (
@@ -8,14 +8,14 @@ RELEASE_API = (
 
 
 def test_published_v010_release_contains_distributions() -> None:
-    request = Request(
+    request = urllib.request.Request(
         RELEASE_API,
         headers={
             "Accept": "application/vnd.github+json",
             "User-Agent": "DisputesBot-release-verification",
         },
     )
-    with urlopen(request, timeout=20) as response:  # noqa: S310
+    with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310
         payload = json.load(response)
 
     asset_names = {asset["name"] for asset in payload["assets"]}
