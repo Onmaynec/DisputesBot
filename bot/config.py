@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     pvp_match_ttl_seconds: int = 86_400
     pvp_invitation_ttl_seconds: int = 600
     pvp_queue_ttl_seconds: int = 1_800
+    pvp_ranked_base_elo_gap: int = 100
+    pvp_ranked_elo_gap_step: int = 50
+    pvp_ranked_expand_interval_seconds: int = 300
+    pvp_ranked_max_elo_gap: int = 400
     pvp_turn_timeout_seconds: int = 3_600
     pvp_timeout_sweep_seconds: int = 30
     pvp_repeat_window_seconds: int = 86_400
@@ -67,6 +71,26 @@ class Settings(BaseSettings):
         if not 1 <= value <= 168:
             raise ValueError("PVP_CHALLENGE_TTL_HOURS must be between 1 and 168")
         return value
+
+    @field_validator(
+        "pvp_ranked_base_elo_gap",
+        "pvp_ranked_elo_gap_step",
+        "pvp_ranked_expand_interval_seconds",
+        "pvp_ranked_max_elo_gap",
+    )
+    @classmethod
+    def validate_ranked_positive(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("Ranked matchmaking values must be positive")
+        return value
+
+    @model_validator(mode="after")
+    def validate_ranked_gap_bounds(self) -> "Settings":
+        if self.pvp_ranked_max_elo_gap < self.pvp_ranked_base_elo_gap:
+            raise ValueError(
+                "PVP_RANKED_MAX_ELO_GAP must be at least PVP_RANKED_BASE_ELO_GAP"
+            )
+        return self
 
     @property
     def moderator_ids(self) -> frozenset[int]:
