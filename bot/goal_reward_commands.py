@@ -13,6 +13,7 @@ from .season_goal_models import (
     definition_for,
     format_metric_value,
 )
+from .season_goal_repository import SeasonGoalRepository
 
 router = Router(name="goal_rewards")
 
@@ -83,15 +84,24 @@ def render_goal_rewards(dashboard: GoalRewardDashboard) -> str:
     return "\n".join(lines)
 
 
+def _reward_repository(
+    season_goal_repository: SeasonGoalRepository,
+) -> GoalRewardRepository:
+    return GoalRewardRepository(
+        season_goal_repository.sessions,
+        season_goal_repository=season_goal_repository,
+    )
+
+
 @router.message(Command("goal_rewards"))
 async def goal_rewards_command(
     message: Message,
-    goal_reward_repository: GoalRewardRepository,
+    season_goal_repository: SeasonGoalRepository,
     settings: Settings,
 ) -> None:
     if message.from_user is None:
         return
-    dashboard = await goal_reward_repository.dashboard(
+    dashboard = await _reward_repository(season_goal_repository).dashboard(
         message.from_user.id,
         settings.pvp_season,
     )
@@ -101,12 +111,12 @@ async def goal_rewards_command(
 @router.message(Command("claim_goal_rewards"))
 async def claim_goal_rewards_command(
     message: Message,
-    goal_reward_repository: GoalRewardRepository,
+    season_goal_repository: SeasonGoalRepository,
     settings: Settings,
 ) -> None:
     if message.from_user is None:
         return
-    result = await goal_reward_repository.claim(
+    result = await _reward_repository(season_goal_repository).claim(
         _identity(message.from_user),
         settings.pvp_season,
     )
