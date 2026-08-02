@@ -77,7 +77,7 @@ class PvPProfileCard:
     badge: CosmeticItem | None
 
 
-COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
+SHOP_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
     CosmeticItem(
         item_id="spark",
         kind=CosmeticKind.BADGE,
@@ -143,7 +143,67 @@ COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
     ),
 )
 
-_COSMETICS_BY_ID = {item.item_id: item for item in COSMETIC_CATALOG}
+SEASON_PASS_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
+    CosmeticItem(
+        item_id="pass_rookie_leaf",
+        kind=CosmeticKind.BADGE,
+        name="Росток сезона",
+        display="🌿",
+        price_tokens=0,
+    ),
+    CosmeticItem(
+        item_id="pass_contender_voice",
+        kind=CosmeticKind.TITLE,
+        name="Восходящий голос",
+        display="Восходящий голос",
+        price_tokens=0,
+    ),
+    CosmeticItem(
+        item_id="pass_challenger_quill",
+        kind=CosmeticKind.BADGE,
+        name="Серебряное перо",
+        display="🪶",
+        price_tokens=0,
+    ),
+    CosmeticItem(
+        item_id="pass_veteran",
+        kind=CosmeticKind.TITLE,
+        name="Ветеран пропуска",
+        display="Ветеран пропуска",
+        price_tokens=0,
+    ),
+    CosmeticItem(
+        item_id="pass_elite_crystal",
+        kind=CosmeticKind.BADGE,
+        name="Кристалл аргумента",
+        display="🔷",
+        price_tokens=0,
+    ),
+    CosmeticItem(
+        item_id="pass_champion",
+        kind=CosmeticKind.TITLE,
+        name="Чемпион сезона",
+        display="Чемпион сезона",
+        price_tokens=0,
+    ),
+    CosmeticItem(
+        item_id="pass_legend_trophy",
+        kind=CosmeticKind.BADGE,
+        name="Трофей легенды",
+        display="🏆",
+        price_tokens=0,
+    ),
+)
+
+# Backward-compatible name for the paid shop catalog.
+COSMETIC_CATALOG = SHOP_COSMETIC_CATALOG
+ALL_COSMETIC_CATALOG = SHOP_COSMETIC_CATALOG + SEASON_PASS_COSMETIC_CATALOG
+
+_COSMETICS_BY_ID = {item.item_id: item for item in ALL_COSMETIC_CATALOG}
+_SHOP_COSMETICS_BY_ID = {item.item_id: item for item in SHOP_COSMETIC_CATALOG}
+_SEASON_PASS_COSMETICS_BY_ID = {
+    item.item_id: item for item in SEASON_PASS_COSMETIC_CATALOG
+}
 
 
 def cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
@@ -152,5 +212,22 @@ def cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
     return _COSMETICS_BY_ID.get(item_id.strip().lower())
 
 
-def cosmetics_by_kind(kind: CosmeticKind) -> tuple[CosmeticItem, ...]:
-    return tuple(item for item in COSMETIC_CATALOG if item.kind is kind)
+def shop_cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
+    if item_id is None:
+        return None
+    return _SHOP_COSMETICS_BY_ID.get(item_id.strip().lower())
+
+
+def season_pass_cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
+    if item_id is None:
+        return None
+    return _SEASON_PASS_COSMETICS_BY_ID.get(item_id.strip().lower())
+
+
+def cosmetics_by_kind(
+    kind: CosmeticKind,
+    *,
+    include_season_pass: bool = False,
+) -> tuple[CosmeticItem, ...]:
+    catalog = ALL_COSMETIC_CATALOG if include_season_pass else SHOP_COSMETIC_CATALOG
+    return tuple(item for item in catalog if item.kind is kind)
