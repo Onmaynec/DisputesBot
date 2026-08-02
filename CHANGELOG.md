@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.13.0 — 2026-08-02
+
+### Added
+
+- `/match_review [match_id]` with a private criterion-by-criterion PvP breakdown.
+- `/pvp_coach` with configurable recent-match averages, results and skill trend.
+- Deterministic strongest-skill and training-focus selection for logic, evidence and rebuttal.
+- Side-specific average totals for the «за» and «против» positions.
+- Configurable coaching window through `PVP_COACH_WINDOW_MATCHES`.
+
+### Reliability
+
+- Coaching reads only immutable completed matches from the current season.
+- Matches completed by forfeit or timeout without structured judge scores are excluded.
+- Trend compares equally sized recent and older samples and requires at least four scored matches.
+- Match lookup is participant-scoped, preventing access to another user's review by match ID.
+- Invalid or incomplete historical score payloads are skipped instead of breaking a report.
+- No additional OpenAI request is made when a coaching report is rendered.
+
+### Privacy and compatibility
+
+- Coaching reports are available only to the Telegram user whose matches are analyzed.
+- No new table, migration, runtime dependency or separately stored skill profile is introduced.
+- Reports reuse existing `pvp_matches` scores and disappear when match history is deleted.
+- Existing v0.12 ranked matchmaking, v0.11 leagues and v0.10 challenges remain compatible.
+
 ## 0.12.0 — 2026-08-02
 
 ### Added
