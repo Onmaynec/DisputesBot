@@ -22,8 +22,8 @@ from .privacy import PrivacyConfirmationStore
 from .progression_repository import ProgressionRepository
 from .pvp_judge import PvPJudgeEngine
 from .pvp_repository import PvPRepository
-from .pvp_store import PvPStore
 from .pvp_timeout import run_timeout_sweeper
+from .ranked_pvp_store import RankedPvPStore
 from .social_repository import SocialRepository
 from .sql_profile_store import SQLProfileStore
 from .storage import RedisStore
@@ -59,7 +59,9 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="privacy", description="Какие данные сохраняются"),
             BotCommand(command="delete_me", description="Удалить мои данные"),
             BotCommand(command="duel", description="Создать PvP-приглашение"),
-            BotCommand(command="queue", description="Найти PvP-соперника"),
+            BotCommand(command="queue", description="Обычный поиск PvP-соперника"),
+            BotCommand(command="ranked_queue", description="Рейтинговый подбор по Elo"),
+            BotCommand(command="queue_status", description="Состояние PvP-очереди"),
             BotCommand(command="leave_queue", description="Выйти из PvP-очереди"),
             BotCommand(command="rematch_duel", description="Рематч с последним соперником"),
             BotCommand(command="duel_status", description="Состояние PvP-дуэли"),
@@ -140,7 +142,7 @@ async def main() -> None:
         ttl_hours=settings.pvp_challenge_ttl_hours,
     )
     league_repository = LeagueRepository(database.sessions)
-    pvp_store = PvPStore(
+    pvp_store = RankedPvPStore(
         redis,
         prefix=settings.redis_prefix,
         match_ttl_seconds=settings.pvp_match_ttl_seconds,
@@ -148,6 +150,10 @@ async def main() -> None:
         queue_ttl_seconds=settings.pvp_queue_ttl_seconds,
         turn_timeout_seconds=settings.pvp_turn_timeout_seconds,
         pair_allowed=moderation_repository.pair_allowed,
+        ranked_base_elo_gap=settings.pvp_ranked_base_elo_gap,
+        ranked_elo_gap_step=settings.pvp_ranked_elo_gap_step,
+        ranked_expand_interval_seconds=settings.pvp_ranked_expand_interval_seconds,
+        ranked_max_elo_gap=settings.pvp_ranked_max_elo_gap,
     )
     pvp_repository = PvPRepository(
         database.sessions,
