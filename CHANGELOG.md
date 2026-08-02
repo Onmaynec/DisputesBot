@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.17.0 — 2026-08-02
+
+### Added
+
+- `/pvp_records` with private cross-season match-level PvP records.
+- Career opponent diversity, overall record, win rate and most frequent rival.
+- Longest in-season win streak, best single-match Elo gain and biggest Elo upset.
+- Private highest own judge score reconstructed from valid stored score payloads.
+- `/season_records [season]` with public records for current or historical seasons.
+- Season leaders for wins, activity, win streak, Elo upset and rivalry frequency.
+
+### Reliability
+
+- Personal streaks reset on losses, draws and season boundaries.
+- Elo gain and upset records use only rated matches and stored before/after values.
+- Invalid score payloads are skipped instead of breaking the personal report.
+- Public player records use deterministic rating, activity, timestamp and user ID tie-breakers.
+- Rivalry pairs are normalized independently of pro/con positions.
+- Invalid and oversized season IDs return a safe empty result.
+- Record books are derived from completed matches and cannot drift from source data.
+
+### Privacy and compatibility
+
+- Personal record books are available only to the requesting Telegram user.
+- The public season board never exposes topics, match IDs, transcripts, arguments, verdicts or judge scores.
+- No new table, Alembic migration, runtime dependency, OpenAI request or background task is introduced.
+- Deleting a profile removes its source matches and therefore removes its derived records.
+- Existing v0.16 season insights, v0.15 archives, v0.14 ranked rewards and migration `0008_ranked_rewards` remain compatible.
+
 ## 0.16.0 — 2026-08-02
 
 ### Added
