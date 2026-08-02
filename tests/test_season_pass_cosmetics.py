@@ -107,4 +107,7 @@ async def test_v020_claim_backfills_item_without_repaying_tokens() -> None:
 def test_each_tier_has_a_unique_known_cosmetic() -> None:
     item_ids = [tier.reward_cosmetic_id for tier in SEASON_PASS_TIERS]
     assert len(item_ids) == len(set(item_ids))
-    assert all(tier.reward_cosmetic.item_id == tier.reward_cosmetic_id for tier in SEASON_PASS_TIERS)
+    assert all(
+        tier.reward_cosmetic.item_id == tier.reward_cosmetic_id
+        for tier in SEASON_PASS_TIERS
+    )
