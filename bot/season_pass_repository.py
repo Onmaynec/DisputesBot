@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from .cosmetic_database import PvPCosmeticLoadoutRow, PvPCosmeticRow
+from .cosmetics import CosmeticKind
 from .database import PvPProgressionRow, UserProfileRow
 from .pvp_models import PvPUser
 from .season_pass_database import PvPSeasonPassClaimRow
@@ -38,20 +40,27 @@ class SeasonPassRepository:
             )
         season_points = int(wallet.season_points if wallet is not None else 0)
         wallet_tokens = int(wallet.tokens if wallet is not None else 0)
-        claimed_at = {row.tier_id: row.claimed_at for row in claims}
+        claim_by_tier = {row.tier_id: row for row in claims}
+        views: list[SeasonPassTierView] = []
+        for tier in SEASON_PASS_TIERS:
+            row = claim_by_tier.get(tier.tier_id)
+            cosmetic_granted_at = None
+            if row is not None and row.reward_item_id == tier.reward_cosmetic_id:
+                cosmetic_granted_at = row.cosmetic_granted_at
+            views.append(
+                SeasonPassTierView(
+                    tier=tier,
+                    season_points=season_points,
+                    claimed_at=row.claimed_at if row is not None else None,
+                    cosmetic_granted_at=cosmetic_granted_at,
+                )
+            )
         return SeasonPassDashboard(
             user_id=user_id,
             season=normalized_season,
             season_points=season_points,
             wallet_tokens=wallet_tokens,
-            tiers=tuple(
-                SeasonPassTierView(
-                    tier=tier,
-                    season_points=season_points,
-                    claimed_at=claimed_at.get(tier.tier_id),
-                )
-                for tier in SEASON_PASS_TIERS
-            ),
+            tiers=tuple(views),
         )
 
     async def claim(
@@ -92,9 +101,9 @@ class SeasonPassRepository:
                 db.add(wallet)
                 await db.flush()
 
-            claimed_ids = set(
+            claim_rows = list(
                 await db.scalars(
-                    select(PvPSeasonPassClaimRow.tier_id)
+                    select(PvPSeasonPassClaimRow)
                     .where(
                         PvPSeasonPassClaimRow.user_id == user.user_id,
                         PvPSeasonPassClaimRow.season == normalized_season,
@@ -102,16 +111,35 @@ class SeasonPassRepository:
                     .with_for_update()
                 )
             )
-            unlocked = tuple(
-                tier
-                for tier in SEASON_PASS_TIERS
-                if tier.points_required <= wallet.season_points
-                and tier.tier_id not in claimed_ids
+            claim_by_tier = {row.tier_id: row for row in claim_rows}
+            owned_ids = set(
+                await db.scalars(
+                    select(PvPCosmeticRow.item_id)
+                    .where(
+                        PvPCosmeticRow.user_id == user.user_id,
+                        PvPCosmeticRow.season == normalized_season,
+                    )
+                    .with_for_update()
+                )
             )
-            gained_tokens = sum(tier.reward_tokens for tier in unlocked)
-            for tier in unlocked:
-                db.add(
-                    PvPSeasonPassClaimRow(
+            loadout = await db.get(
+                PvPCosmeticLoadoutRow,
+                {"user_id": user.user_id, "season": normalized_season},
+                with_for_update=True,
+            )
+
+            claimed_tier_ids: list[str] = []
+            granted_cosmetic_ids: list[str] = []
+            auto_equipped_ids: list[str] = []
+            gained_tokens = 0
+
+            for tier in SEASON_PASS_TIERS:
+                if tier.points_required > wallet.season_points:
+                    continue
+
+                row = claim_by_tier.get(tier.tier_id)
+                if row is None:
+                    row = PvPSeasonPassClaimRow(
                         user_id=user.user_id,
                         season=normalized_season,
                         tier_id=tier.tier_id,
@@ -120,14 +148,60 @@ class SeasonPassRepository:
                         claimed_points=wallet.season_points,
                         claimed_at=reference,
                     )
+                    db.add(row)
+                    claim_by_tier[tier.tier_id] = row
+                    claimed_tier_ids.append(tier.tier_id)
+                    gained_tokens += tier.reward_tokens
+
+                cosmetic_pending = (
+                    row.reward_item_id != tier.reward_cosmetic_id
+                    or row.cosmetic_granted_at is None
                 )
+                if not cosmetic_pending:
+                    continue
+
+                item = tier.reward_cosmetic
+                if item.item_id not in owned_ids:
+                    db.add(
+                        PvPCosmeticRow(
+                            user_id=user.user_id,
+                            season=normalized_season,
+                            item_id=item.item_id,
+                            kind=item.kind.value,
+                            purchased_at=reference,
+                        )
+                    )
+                    owned_ids.add(item.item_id)
+                    granted_cosmetic_ids.append(item.item_id)
+
+                    if loadout is None:
+                        loadout = PvPCosmeticLoadoutRow(
+                            user_id=user.user_id,
+                            season=normalized_season,
+                        )
+                        db.add(loadout)
+                    if item.kind is CosmeticKind.TITLE and loadout.title_id is None:
+                        loadout.title_id = item.item_id
+                        loadout.updated_at = reference
+                        auto_equipped_ids.append(item.item_id)
+                    elif item.kind is CosmeticKind.BADGE and loadout.badge_id is None:
+                        loadout.badge_id = item.item_id
+                        loadout.updated_at = reference
+                        auto_equipped_ids.append(item.item_id)
+
+                row.reward_item_id = item.item_id
+                row.cosmetic_granted_at = reference
+
             if gained_tokens:
                 wallet.tokens += gained_tokens
                 wallet.updated_at = reference
+            if claimed_tier_ids or granted_cosmetic_ids:
                 await db.flush()
 
             return SeasonPassClaimResult(
-                claimed_tier_ids=tuple(tier.tier_id for tier in unlocked),
+                claimed_tier_ids=tuple(claimed_tier_ids),
+                granted_cosmetic_ids=tuple(granted_cosmetic_ids),
+                auto_equipped_ids=tuple(auto_equipped_ids),
                 gained_tokens=gained_tokens,
                 wallet_tokens=wallet.tokens,
                 season_points=wallet.season_points,

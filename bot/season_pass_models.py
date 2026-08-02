@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from .cosmetics import CosmeticItem, season_pass_cosmetic_by_id
+
 
 class SeasonPassInputError(ValueError):
     pass
@@ -15,16 +17,59 @@ class SeasonPassTier:
     icon: str
     points_required: int
     reward_tokens: int
+    reward_cosmetic_id: str
+
+    @property
+    def reward_cosmetic(self) -> CosmeticItem:
+        item = season_pass_cosmetic_by_id(self.reward_cosmetic_id)
+        if item is None:
+            raise SeasonPassInputError("Уровень ссылается на неизвестную косметику")
+        return item
 
 
 SEASON_PASS_TIERS: tuple[SeasonPassTier, ...] = (
-    SeasonPassTier("rookie", "Новичок", "🌱", 100, 10),
-    SeasonPassTier("contender", "Претендент", "🥉", 250, 15),
-    SeasonPassTier("challenger", "Челленджер", "🥈", 500, 25),
-    SeasonPassTier("veteran", "Ветеран", "🥇", 900, 35),
-    SeasonPassTier("elite", "Элита", "💎", 1_400, 50),
-    SeasonPassTier("champion", "Чемпион", "👑", 2_000, 70),
-    SeasonPassTier("legend", "Легенда", "🏆", 3_000, 100),
+    SeasonPassTier("rookie", "Новичок", "🌱", 100, 10, "pass_rookie_leaf"),
+    SeasonPassTier(
+        "contender",
+        "Претендент",
+        "🥉",
+        250,
+        15,
+        "pass_contender_voice",
+    ),
+    SeasonPassTier(
+        "challenger",
+        "Челленджер",
+        "🥈",
+        500,
+        25,
+        "pass_challenger_quill",
+    ),
+    SeasonPassTier("veteran", "Ветеран", "🥇", 900, 35, "pass_veteran"),
+    SeasonPassTier(
+        "elite",
+        "Элита",
+        "💎",
+        1_400,
+        50,
+        "pass_elite_crystal",
+    ),
+    SeasonPassTier(
+        "champion",
+        "Чемпион",
+        "👑",
+        2_000,
+        70,
+        "pass_champion",
+    ),
+    SeasonPassTier(
+        "legend",
+        "Легенда",
+        "🏆",
+        3_000,
+        100,
+        "pass_legend_trophy",
+    ),
 )
 
 _TIER_BY_ID = {tier.tier_id: tier for tier in SEASON_PASS_TIERS}
@@ -35,14 +80,23 @@ class SeasonPassTierView:
     tier: SeasonPassTier
     season_points: int
     claimed_at: datetime | None
+    cosmetic_granted_at: datetime | None
 
     @property
     def is_unlocked(self) -> bool:
         return self.season_points >= self.tier.points_required
 
     @property
-    def is_claimed(self) -> bool:
+    def token_claimed(self) -> bool:
         return self.claimed_at is not None
+
+    @property
+    def cosmetic_granted(self) -> bool:
+        return self.cosmetic_granted_at is not None
+
+    @property
+    def is_claimed(self) -> bool:
+        return self.token_claimed and self.cosmetic_granted
 
     @property
     def is_claimable(self) -> bool:
@@ -83,9 +137,15 @@ class SeasonPassDashboard:
 @dataclass(frozen=True, slots=True)
 class SeasonPassClaimResult:
     claimed_tier_ids: tuple[str, ...]
+    granted_cosmetic_ids: tuple[str, ...]
+    auto_equipped_ids: tuple[str, ...]
     gained_tokens: int
     wallet_tokens: int
     season_points: int
+
+    @property
+    def changed(self) -> bool:
+        return bool(self.claimed_tier_ids or self.granted_cosmetic_ids)
 
 
 def tier_for_id(tier_id: str) -> SeasonPassTier:

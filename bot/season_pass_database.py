@@ -22,6 +22,11 @@ class PvPSeasonPassClaimRow(Base):
     points_required: Mapped[int] = mapped_column(Integer, nullable=False)
     reward_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     claimed_points: Mapped[int] = mapped_column(Integer, nullable=False)
+    reward_item_id: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    cosmetic_granted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     claimed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

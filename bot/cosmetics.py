@@ -77,73 +77,103 @@ class PvPProfileCard:
     badge: CosmeticItem | None
 
 
-COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
+SHOP_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
+    CosmeticItem("spark", CosmeticKind.BADGE, "Искра", "⚡", 80),
+    CosmeticItem("shield", CosmeticKind.BADGE, "Щит аргументов", "🛡️", 160, 100),
+    CosmeticItem("crown", CosmeticKind.BADGE, "Корона оратора", "👑", 320, 450),
+    CosmeticItem("phoenix", CosmeticKind.BADGE, "Феникс серии", "🔥", 500, 700),
+    CosmeticItem("sharp_mind", CosmeticKind.TITLE, "Острый ум", "Острый ум", 120, 100),
     CosmeticItem(
-        item_id="spark",
-        kind=CosmeticKind.BADGE,
-        name="Искра",
-        display="⚡",
-        price_tokens=80,
+        "steel_logic",
+        CosmeticKind.TITLE,
+        "Стальная логика",
+        "Стальная логика",
+        220,
+        250,
     ),
     CosmeticItem(
-        item_id="shield",
-        kind=CosmeticKind.BADGE,
-        name="Щит аргументов",
-        display="🛡️",
-        price_tokens=160,
-        required_points=100,
+        "master_rebuttal",
+        CosmeticKind.TITLE,
+        "Мастер опровержения",
+        "Мастер опровержения",
+        350,
+        450,
     ),
     CosmeticItem(
-        item_id="crown",
-        kind=CosmeticKind.BADGE,
-        name="Корона оратора",
-        display="👑",
-        price_tokens=320,
-        required_points=450,
-    ),
-    CosmeticItem(
-        item_id="phoenix",
-        kind=CosmeticKind.BADGE,
-        name="Феникс серии",
-        display="🔥",
-        price_tokens=500,
-        required_points=700,
-    ),
-    CosmeticItem(
-        item_id="sharp_mind",
-        kind=CosmeticKind.TITLE,
-        name="Острый ум",
-        display="Острый ум",
-        price_tokens=120,
-        required_points=100,
-    ),
-    CosmeticItem(
-        item_id="steel_logic",
-        kind=CosmeticKind.TITLE,
-        name="Стальная логика",
-        display="Стальная логика",
-        price_tokens=220,
-        required_points=250,
-    ),
-    CosmeticItem(
-        item_id="master_rebuttal",
-        kind=CosmeticKind.TITLE,
-        name="Мастер опровержения",
-        display="Мастер опровержения",
-        price_tokens=350,
-        required_points=450,
-    ),
-    CosmeticItem(
-        item_id="arena_legend",
-        kind=CosmeticKind.TITLE,
-        name="Легенда арены",
-        display="Легенда арены",
-        price_tokens=550,
-        required_points=1_000,
+        "arena_legend",
+        CosmeticKind.TITLE,
+        "Легенда арены",
+        "Легенда арены",
+        550,
+        1_000,
     ),
 )
 
-_COSMETICS_BY_ID = {item.item_id: item for item in COSMETIC_CATALOG}
+# Larger than PostgreSQL INTEGER can hold, so these items cannot be purchased through
+# the legacy /buy path. They are granted only by the season-pass transaction.
+_REWARD_ONLY_PRICE = 2_147_483_648
+
+SEASON_PASS_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
+    CosmeticItem(
+        "pass_rookie_leaf",
+        CosmeticKind.BADGE,
+        "Росток сезона",
+        "🌿",
+        _REWARD_ONLY_PRICE,
+    ),
+    CosmeticItem(
+        "pass_contender_voice",
+        CosmeticKind.TITLE,
+        "Восходящий голос",
+        "Восходящий голос",
+        _REWARD_ONLY_PRICE,
+    ),
+    CosmeticItem(
+        "pass_challenger_quill",
+        CosmeticKind.BADGE,
+        "Серебряное перо",
+        "🪶",
+        _REWARD_ONLY_PRICE,
+    ),
+    CosmeticItem(
+        "pass_veteran",
+        CosmeticKind.TITLE,
+        "Ветеран пропуска",
+        "Ветеран пропуска",
+        _REWARD_ONLY_PRICE,
+    ),
+    CosmeticItem(
+        "pass_elite_crystal",
+        CosmeticKind.BADGE,
+        "Кристалл аргумента",
+        "🔷",
+        _REWARD_ONLY_PRICE,
+    ),
+    CosmeticItem(
+        "pass_champion",
+        CosmeticKind.TITLE,
+        "Чемпион сезона",
+        "Чемпион сезона",
+        _REWARD_ONLY_PRICE,
+    ),
+    CosmeticItem(
+        "pass_legend_trophy",
+        CosmeticKind.BADGE,
+        "Трофей легенды",
+        "🏆",
+        _REWARD_ONLY_PRICE,
+    ),
+)
+
+# Backward-compatible name for the paid shop catalog.
+COSMETIC_CATALOG = SHOP_COSMETIC_CATALOG
+ALL_COSMETIC_CATALOG = SHOP_COSMETIC_CATALOG + SEASON_PASS_COSMETIC_CATALOG
+
+_COSMETICS_BY_ID = {item.item_id: item for item in ALL_COSMETIC_CATALOG}
+_SHOP_COSMETICS_BY_ID = {item.item_id: item for item in SHOP_COSMETIC_CATALOG}
+_SEASON_PASS_COSMETICS_BY_ID = {
+    item.item_id: item for item in SEASON_PASS_COSMETIC_CATALOG
+}
 
 
 def cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
@@ -152,5 +182,22 @@ def cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
     return _COSMETICS_BY_ID.get(item_id.strip().lower())
 
 
-def cosmetics_by_kind(kind: CosmeticKind) -> tuple[CosmeticItem, ...]:
-    return tuple(item for item in COSMETIC_CATALOG if item.kind is kind)
+def shop_cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
+    if item_id is None:
+        return None
+    return _SHOP_COSMETICS_BY_ID.get(item_id.strip().lower())
+
+
+def season_pass_cosmetic_by_id(item_id: str | None) -> CosmeticItem | None:
+    if item_id is None:
+        return None
+    return _SEASON_PASS_COSMETICS_BY_ID.get(item_id.strip().lower())
+
+
+def cosmetics_by_kind(
+    kind: CosmeticKind,
+    *,
+    include_season_pass: bool = False,
+) -> tuple[CosmeticItem, ...]:
+    catalog = ALL_COSMETIC_CATALOG if include_season_pass else SHOP_COSMETIC_CATALOG
+    return tuple(item for item in catalog if item.kind is kind)
