@@ -9,6 +9,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from redis.asyncio import from_url
 
+from .challenge_repository import ChallengeRepository
 from .config import Settings
 from .cosmetic_repository import CosmeticRepository
 from .database import Database
@@ -33,6 +34,7 @@ from .v06_handlers import router as v06_router
 from .v07_handlers import router as v07_router
 from .v08_handlers import router as v08_router
 from .v09_handlers import router as v09_router
+from .v10_handlers import router as v10_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -78,6 +80,11 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="profile_visibility", description="Видимость PvP-профиля"),
             BotCommand(command="rivals", description="Главные PvP-соперники"),
             BotCommand(command="head_to_head", description="Личные встречи с игроком"),
+            BotCommand(command="challenge", description="Персональный PvP-вызов"),
+            BotCommand(command="challenges", description="Входящие и исходящие вызовы"),
+            BotCommand(command="accept_challenge", description="Принять PvP-вызов"),
+            BotCommand(command="decline_challenge", description="Отклонить PvP-вызов"),
+            BotCommand(command="cancel_challenge", description="Отменить свой PvP-вызов"),
             BotCommand(command="block", description="Заблокировать PvP-соперника"),
             BotCommand(command="unblock", description="Убрать пользователя из блок-листа"),
             BotCommand(command="blocked", description="Показать PvP-блок-лист"),
@@ -123,6 +130,10 @@ async def main() -> None:
     )
     cosmetic_repository = CosmeticRepository(database.sessions)
     social_repository = SocialRepository(database.sessions)
+    challenge_repository = ChallengeRepository(
+        database.sessions,
+        ttl_hours=settings.pvp_challenge_ttl_hours,
+    )
     pvp_store = PvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -155,6 +166,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v10_router)
     dispatcher.include_router(v09_router)
     dispatcher.include_router(v08_router)
     dispatcher.include_router(v07_router)
@@ -190,6 +202,7 @@ async def main() -> None:
             progression_repository=progression_repository,
             cosmetic_repository=cosmetic_repository,
             social_repository=social_repository,
+            challenge_repository=challenge_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
