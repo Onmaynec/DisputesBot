@@ -98,7 +98,10 @@ async def test_v020_claim_backfills_item_without_repaying_tokens() -> None:
             {"user_id": 1, "season": "season-1", "tier_id": "rookie"},
         )
     assert row is not None
-    assert row.claimed_at == claimed_at
+    persisted_claimed_at = row.claimed_at
+    if persisted_claimed_at.tzinfo is None:
+        persisted_claimed_at = persisted_claimed_at.replace(tzinfo=UTC)
+    assert persisted_claimed_at == claimed_at
     assert row.reward_item_id == "pass_rookie_leaf"
     assert row.cosmetic_granted_at is not None
     await database.close()
