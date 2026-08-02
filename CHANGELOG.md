@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.16.0 — 2026-08-02
+
+### Added
+
+- `/season_recap [season]` with a private full-season PvP summary.
+- `/compare_seasons [older newer]` with automatic comparison of the two latest seasons.
+- `/career_records` with personal best final Elo, peak Elo, wins, games, win rate, rating gain and win streak.
+- Per-season rated/unrated counts, unique opponents and deterministic favorite opponent.
+- Full-season averages for logic, evidence and rebuttal from existing judge scores.
+- Claimed ranked reward milestone and token totals inside the season recap.
+
+### Reliability
+
+- Elo paths are reconstructed from stored before/after values plus the final player row.
+- Win streaks are calculated chronologically and reset on draws or losses.
+- Invalid score payloads are skipped without breaking the remaining recap.
+- Favorite-opponent ties use match count and then the lowest stable user ID.
+- Best win-rate records prefer seasons with at least five games and safely fall back for shorter careers.
+- Season comparison rejects duplicate, unknown, whitespace-containing and overlong season IDs.
+
+### Privacy and compatibility
+
+- Recaps, comparisons and career records are participant-scoped to the requesting Telegram user.
+- No new table, Alembic migration, runtime dependency, OpenAI request or background task is introduced.
+- Reports reuse existing `pvp_players`, participant `pvp_matches` and ranked reward claim rows.
+- Existing v0.15 archives, v0.14 ranked rewards and migration `0008_ranked_rewards` remain compatible.
+- `/delete_me` removes all source rows, after which recap and record views disappear automatically.
+
 ## 0.15.0 — 2026-08-02
 
 ### Added
