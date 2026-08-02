@@ -22,6 +22,7 @@ from .moderation_repository import ModerationRepository
 from .privacy import PrivacyConfirmationStore
 from .progression_repository import ProgressionRepository
 from .pvp_judge import PvPJudgeEngine
+from .pvp_record_repository import PvPRecordRepository
 from .pvp_repository import PvPRepository
 from .pvp_timeout import run_timeout_sweeper
 from .ranked_pvp_store import RankedPvPStore
@@ -45,6 +46,7 @@ from .v13_handlers import router as v13_router
 from .v14_handlers import router as v14_router
 from .v15_handlers import router as v15_router
 from .v16_handlers import router as v16_router
+from .v17_handlers import router as v17_router
 
 
 async def set_commands(bot: Bot) -> None:
@@ -86,7 +88,9 @@ async def set_commands(bot: Bot) -> None:
             BotCommand(command="hall_of_fame", description="Чемпионы PvP-сезонов"),
             BotCommand(command="season_recap", description="Персональные итоги сезона"),
             BotCommand(command="compare_seasons", description="Сравнить два PvP-сезона"),
-            BotCommand(command="career_records", description="Личные PvP-рекорды"),
+            BotCommand(command="career_records", description="Лучшие показатели сезонов"),
+            BotCommand(command="pvp_records", description="Матчевые PvP-рекорды"),
+            BotCommand(command="season_records", description="Публичные рекорды сезона"),
             BotCommand(command="pvp_leaderboard", description="PvP-лидерборд"),
             BotCommand(command="duel_history", description="История PvP-дуэлей"),
             BotCommand(command="pvp_stats", description="Расширенная PvP-аналитика"),
@@ -167,6 +171,7 @@ async def main() -> None:
     ranked_reward_repository = RankedRewardRepository(database.sessions)
     season_archive_repository = SeasonArchiveRepository(database.sessions)
     season_insight_repository = SeasonInsightRepository(database.sessions)
+    pvp_record_repository = PvPRecordRepository(database.sessions)
     pvp_store = RankedPvPStore(
         redis,
         prefix=settings.redis_prefix,
@@ -203,6 +208,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = Dispatcher()
+    dispatcher.include_router(v17_router)
     dispatcher.include_router(v16_router)
     dispatcher.include_router(v15_router)
     dispatcher.include_router(v14_router)
@@ -250,6 +256,7 @@ async def main() -> None:
             ranked_reward_repository=ranked_reward_repository,
             season_archive_repository=season_archive_repository,
             season_insight_repository=season_insight_repository,
+            pvp_record_repository=pvp_record_repository,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
