@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.19.0 — 2026-08-02
+
+### Added
+
+- `/goal_rewards` with private reward eligibility, wallet totals and per-goal claim status.
+- `/claim_goal_rewards` for atomic collection of every completed eligible seasonal goal.
+- Fixed token and season-point rewards for all nine measurable goal metrics.
+- PostgreSQL table `pvp_goal_reward_claims` and migration `0010_goal_rewards`.
+- Telegram command-menu registration through the v0.19 router startup hook.
+
+### Reliability
+
+- Each metric can grant a reward only once per user and season.
+- A composite primary key makes repeated claim requests idempotent.
+- Claims lock the user profile, current goals, claim audit rows and progression wallet in one transaction.
+- Anti-farming thresholds require meaningful improvement: 50 Elo, three wins, five matches, five win-rate points, a two-win streak or 0.5 judge-skill growth.
+- League promotion goals remain eligible whenever the stored target is above the baseline rating.
+- Goal completion is refreshed from authoritative stored aggregates immediately before claim.
+- Recreating or raising an already rewarded metric cannot grant a second seasonal reward.
+
+### Privacy and compatibility
+
+- Reward audit rows store only user ID, season, metric ID, numeric baseline and target, rewards and timestamps.
+- Topics, match IDs, arguments, transcripts, verdicts and judge score payloads are never copied into claims.
+- Goal rewards add only tokens and season points; they do not modify Elo, matchmaking, judging or match outcomes.
+- Claim rows use `ON DELETE CASCADE` and disappear with the user profile.
+- Existing v0.18 goals, v0.17 record books, v0.16 insights and v0.14 ranked rewards remain compatible.
+- No new runtime dependency, OpenAI request or background task is introduced.
+
 ## 0.18.0 — 2026-08-02
 
 ### Added
