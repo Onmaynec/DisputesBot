@@ -183,4 +183,4 @@ class LeagueRepository:
     def _outcome_marker(match: PvPMatchRow, user_id: int) -> str:
         if match.winner_user_id is None:
             return "Н"
-        return "П" if match.winner_user_id == user_id else "ПР"
+        return "В" if match.winner_user_id == user_id else "П"
