@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.14.0 — 2026-08-02
+
+### Added
+
+- `/ranked_rewards` with current league, peak seasonal Elo, wallet balance and every league milestone.
+- `/claim_ranked_rewards` for cumulative token rewards from Bronze through the highest reached division.
+- Seven deterministic token rewards aligned with the existing league catalog.
+- PostgreSQL table `pvp_ranked_reward_claims` and migration `0008_ranked_rewards`.
+
+### Reliability
+
+- Rewards remain locked until the five-match placement is complete.
+- Eligibility uses the highest stored seasonal Elo, so later rating loss does not remove an earned milestone.
+- Claims lock the seasonal player and progression wallet in one transaction.
+- A composite primary key prevents a league reward from being granted twice for the same user and season.
+- Repeated claim requests are idempotent and return the unchanged wallet balance.
+- Reward tokens do not modify Elo, season points, matchmaking, judging or match outcomes.
+
+### Privacy and compatibility
+
+- Claim audit rows contain only user ID, season, league ID, token amount, claimed Elo and timestamp.
+- Match transcripts, arguments and judge scores are never copied into reward storage.
+- `/delete_me` removes ranked reward claims before profile deletion; the table also uses `ON DELETE CASCADE`.
+- Existing v0.13 private coaching, v0.12 ranked matchmaking, wallets, cosmetics and daily rewards remain compatible.
+- No new runtime dependency is introduced.
+
 ## 0.13.0 — 2026-08-02
 
 ### Added

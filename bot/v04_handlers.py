@@ -19,6 +19,7 @@ from .profile_protocol import ProfileRepository
 from .progression_repository import ProgressionRepository
 from .pvp_repository import PvPRepository
 from .pvp_store import PvPStore
+from .ranked_reward_repository import RankedRewardRepository
 from .social_repository import SocialRepository
 from .storage import SessionStore
 
@@ -42,11 +43,12 @@ def delete_confirmation_keyboard(token: str) -> InlineKeyboardMarkup:
 @router.message(CommandStart())
 async def start_v04_command(message: Message) -> None:
     await message.answer(
-        "⚔️ Добро пожаловать в DisputesBot v0.13!\n\n"
+        "⚔️ Добро пожаловать в DisputesBot v0.14!\n\n"
         "Тренируйте аргументацию с ботом или участвуйте в PvP-дуэлях.\n\n"
         "Новые команды:\n"
-        "/match_review — подробный разбор последнего матча\n"
-        "/pvp_coach — средние навыки, динамика и фокус тренировки\n\n"
+        "/ranked_rewards — награды за достигнутые лиги\n"
+        "/claim_ranked_rewards — получить доступные токены\n\n"
+        "Coaching: /match_review · /pvp_coach\n"
         "Рейтинговый подбор: /ranked_queue · /queue_status\n"
         "Лига: /league\n"
         "Персональные вызовы: /challenge · /challenges\n"
@@ -68,16 +70,17 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 • пользовательский PvP-блок-лист;
 • жалобы на матчи и журнал их обработки;
 • сезонные очки, PvP-токены, серии дней и полученные daily-награды;
+• полученные награды рейтинговых лиг, сумма токенов и Elo в момент claim;
 • купленные косметические item ID и выбранный сезонный loadout;
 • настройка публичности PvP-профиля;
 • персональные PvP-вызовы, их тема, статус и срок действия.
 
 Публичность профиля по умолчанию выключена. После /profile_visibility public другие
 пользователи могут видеть PvP Elo, сезонную статистику, очки и экипированную косметику.
-Баланс токенов другим пользователям не показывается. Блокировка в любую сторону всегда
-запрещает просмотр профиля и создание или принятие персонального вызова. /rivals и
-/head_to_head показывают только статистику матчей, в которых участвовал сам
-запрашивающий пользователь.
+Баланс токенов и история получения рейтинговых наград другим пользователям не
+показываются. Блокировка в любую сторону запрещает просмотр профиля и создание или
+принятие персонального вызова. /rivals и /head_to_head показывают только статистику
+матчей, в которых участвовал сам запрашивающий пользователь.
 
 /match_review и /pvp_coach доступны только владельцу Telegram user ID и анализируют
 только матчи, в которых он участвовал. Coaching-layer не создаёт новые оценки, не
@@ -85,13 +88,14 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 при запросе из уже сохранённых результатов. Матчи через сдачу или тайм-аут без
 структурированных оценок в coaching-статистику не входят.
 
+Рейтинговая лига и лучший Elo сезона вычисляются из агрегатов Elo и завершённых матчей.
+Для защиты от повторного начисления PostgreSQL хранит только ID пользователя, сезон,
+ID полученного дивизиона, число токенов, Elo в момент claim и время операции. Награды
+не содержат аргументы, стенограммы или оценки судьи.
+
 Персональные вызовы хранятся в PostgreSQL до принятия, отклонения, отмены или истечения
 срока. Они содержат только ID участников, сезон, тему и служебный статус. Тексты будущих
 аргументов в вызове не сохраняются.
-
-Рейтинговая лига, калибровка, прогресс повышения и распределение игроков вычисляются
-из уже сохранённых агрегатов Elo и завершённых матчей. Отдельная персональная запись
-для лиги не создаётся.
 
 В Redis временно хранятся активный спор, PvP-матч, приглашения, роль, сложность,
 блокировки запросов, rate limit и записи обычной или рейтинговой очереди. Для
@@ -100,10 +104,10 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 выхода, удаления аккаунта или истечения queue TTL.
 
 Участник PvP видит имя и аргументы своего соперника. Команда /delete_me удаляет профиль,
-архивы, PvP-рейтинг, историю матчей вместе с оценками, progression-данные, косметический
-инвентарь, настройку публичности, персональные вызовы, обе очереди, blocklist, настройки
-и активные Redis-сессии. Жалобы сохраняются как аудиторские записи, но связь с удалённым
-заявителем очищается."""
+архивы, PvP-рейтинг, историю матчей вместе с оценками, progression-данные, ranked reward
+claims, косметический инвентарь, настройку публичности, персональные вызовы, обе очереди,
+blocklist, настройки и активные Redis-сессии. Жалобы сохраняются как аудиторские записи,
+но связь с удалённым заявителем очищается."""
 
 
 @router.message(Command("privacy"))
@@ -121,8 +125,9 @@ async def delete_me_command(
     token = await privacy.create(message.from_user.id)
     await message.answer(
         "⚠️ Это безвозвратно удалит статистику, достижения, архивы, настройки, "
-        "сезонный прогресс, косметический инвентарь, публичность, персональные "
-        "вызовы, PvP-очереди и активный спор. Подтверждение действует 5 минут.",
+        "сезонный прогресс, рейтинговые награды, косметический инвентарь, "
+        "публичность, персональные вызовы, PvP-очереди и активный спор. "
+        "Подтверждение действует 5 минут.",
         reply_markup=delete_confirmation_keyboard(token),
     )
 
@@ -150,6 +155,7 @@ async def confirm_delete_callback(
     cosmetic_repository: CosmeticRepository,
     social_repository: SocialRepository,
     challenge_repository: ChallengeRepository,
+    ranked_reward_repository: RankedRewardRepository,
 ) -> None:
     token = (callback.data or "").split(":", maxsplit=2)[-1]
     if not await privacy.consume(callback.from_user.id, token):
@@ -160,6 +166,7 @@ async def confirm_delete_callback(
             )
         return
     await moderation_repository.anonymize_user(callback.from_user.id)
+    await ranked_reward_repository.delete_user_data(callback.from_user.id)
     await challenge_repository.delete_user_data(callback.from_user.id)
     await social_repository.delete_user_data(callback.from_user.id)
     await cosmetic_repository.delete_user_data(callback.from_user.id)
@@ -171,8 +178,9 @@ async def confirm_delete_callback(
     await callback.answer("Данные удалены")
     if callback.message is not None:
         await callback.message.edit_text(
-            "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, косметика, "
-            "публичность, вызовы, очереди, настройки и активная сессия удалены."
+            "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, рейтинговые "
+            "награды, косметика, публичность, вызовы, очереди, настройки и активная "
+            "сессия удалены."
         )
 
 
