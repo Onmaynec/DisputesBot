@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from aiogram import Router
-from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram import Bot, Router
+from aiogram.filters import Command, CommandStart
+from aiogram.types import BotCommand, Message
 
 from .config import Settings
 from .goal_reward_models import GoalRewardDashboard, GoalRewardView
@@ -16,6 +16,54 @@ from .season_goal_models import (
 from .season_goal_repository import SeasonGoalRepository
 
 router = Router(name="goal_rewards")
+
+
+async def register_v19_commands(bot: Bot) -> None:
+    commands = await bot.get_my_commands()
+    existing = {item.command for item in commands}
+    additions = [
+        BotCommand(command="goal_rewards", description="Награды сезонных PvP-целей"),
+        BotCommand(
+            command="claim_goal_rewards",
+            description="Получить награды выполненных целей",
+        ),
+    ]
+    merged = [*commands, *(item for item in additions if item.command not in existing)]
+    if len(merged) != len(commands):
+        await bot.set_my_commands(merged)
+
+
+router.startup.register(register_v19_commands)
+
+
+PRIVACY_TEXT = """🔐 Приватность DisputesBot v0.19
+
+Постоянно сохраняются Telegram user_id, имя профиля, статистика и архивы дебатов,
+сезонный PvP Elo, завершённые матчи, судейские оценки полных матчей, blocklist,
+жалобы, progression wallet, daily claims, ranked rewards, косметика, настройки
+публичности, персональные вызовы и приватные сезонные цели.
+
+Награды целей хранят отдельную audit-строку только после claim: user ID, сезон,
+фиксированный ID метрики, числовые baseline и target, число токенов и очков, время
+выполнения и получения. Свободный текст, темы матчей, аргументы, стенограммы,
+вердикты и judge score payload в reward claim не копируются.
+
+/goals, /goal_rewards и /claim_goal_rewards доступны только владельцу Telegram user ID.
+Одна метрика может дать награду только один раз за сезон. Claim не меняет Elo,
+matchmaking, судейство или результат матча; он добавляет только токены и season points
+в существующий progression wallet.
+
+Публичные команды используют только ранее разрешённые агрегаты профиля. Приватные
+coaching, recap, comparison, record book и goal-отчёты другим игрокам не показываются.
+
+В Redis временно находятся активные споры и PvP-матчи, приглашения, очереди,
+Elo-снимки matchmaking, дедлайны, rate limit, request locks и подтверждение удаления.
+
+/delete_me удаляет профиль, архивы, PvP-рейтинг и матчи, progression-данные,
+ranked reward claims, сезонные цели и goal reward claims, косметику, публичность,
+вызовы, blocklist, очереди, настройки и активные Redis-сессии. Goal reward claims
+также используют ON DELETE CASCADE от профиля. Жалобы сохраняются как обезличенные
+аудиторские записи."""
 
 
 def _baseline(goal: GoalRewardView) -> str:
@@ -91,6 +139,25 @@ def _reward_repository(
         season_goal_repository.sessions,
         season_goal_repository=season_goal_repository,
     )
+
+
+@router.message(CommandStart())
+async def start_v19_command(message: Message) -> None:
+    await message.answer(
+        "⚔️ Добро пожаловать в DisputesBot v0.19!\n\n"
+        "Новые команды:\n"
+        "/goal_rewards — награды и требования текущих целей\n"
+        "/claim_goal_rewards — получить все доступные токены и очки\n\n"
+        "Цели: /goals · /set_goal · /goal_suggest\n"
+        "Итоги: /season_recap · /compare_seasons · /career_records\n"
+        "Рекорды: /pvp_records · /season_records\n"
+        "Начать спор: /debate [тема]"
+    )
+
+
+@router.message(Command("privacy"))
+async def privacy_v19_command(message: Message) -> None:
+    await message.answer(PRIVACY_TEXT)
 
 
 @router.message(Command("goal_rewards"))
