@@ -20,6 +20,7 @@ from .progression_repository import ProgressionRepository
 from .pvp_repository import PvPRepository
 from .pvp_store import PvPStore
 from .ranked_reward_repository import RankedRewardRepository
+from .season_goal_repository import SeasonGoalRepository
 from .social_repository import SocialRepository
 from .storage import SessionStore
 
@@ -43,12 +44,13 @@ def delete_confirmation_keyboard(token: str) -> InlineKeyboardMarkup:
 @router.message(CommandStart())
 async def start_v04_command(message: Message) -> None:
     await message.answer(
-        "⚔️ Добро пожаловать в DisputesBot v0.16!\n\n"
+        "⚔️ Добро пожаловать в DisputesBot v0.17!\n\n"
         "Тренируйте аргументацию с ботом или участвуйте в PvP-дуэлях.\n\n"
         "Новые команды:\n"
-        "/season_recap — подробные личные итоги сезона\n"
-        "/compare_seasons — сравнить два последних или указанных сезона\n"
-        "/career_records — лучшие показатели PvP-карьеры\n\n"
+        "/goals — сезонные PvP-цели и прогресс\n"
+        "/set_goal — создать или изменить измеримую цель\n"
+        "/goal_suggest — получить персональные рекомендации\n\n"
+        "Итоги: /season_recap · /compare_seasons · /career_records\n"
         "Карьера и архив: /pvp_career · /season_archive · /hall_of_fame\n"
         "Награды лиг: /ranked_rewards · /claim_ranked_rewards\n"
         "Coaching: /match_review · /pvp_coach\n"
@@ -73,16 +75,23 @@ PRIVACY_TEXT = """🔐 Приватность DisputesBot
 • жалобы на матчи и журнал их обработки;
 • сезонные очки, PvP-токены, серии дней и полученные daily-награды;
 • полученные награды рейтинговых лиг, сумма токенов и Elo в момент claim;
+• приватные сезонные цели: ID метрики, стартовое и целевое значение, время завершения;
 • купленные косметические item ID и выбранный сезонный loadout;
 • настройка публичности PvP-профиля;
 • персональные PvP-вызовы, их тема, статус и срок действия.
 
 Публичность профиля по умолчанию выключена. После /profile_visibility public другие
 пользователи могут видеть PvP Elo, сезонную статистику, очки и экипированную косметику.
-Баланс токенов и история получения рейтинговых наград другим пользователям не
-показываются. Блокировка в любую сторону запрещает просмотр профиля и создание или
-принятие персонального вызова. /rivals и /head_to_head показывают только статистику
-матчей, в которых участвовал сам запрашивающий пользователь.
+Баланс токенов, история наград и сезонные цели другим пользователям не показываются.
+Блокировка в любую сторону запрещает просмотр профиля и создание или принятие
+персонального вызова. /rivals и /head_to_head показывают только статистику матчей,
+в которых участвовал сам запрашивающий пользователь.
+
+/goals, /set_goal, /delete_goal и /goal_suggest доступны только владельцу Telegram
+user ID. Цели содержат фиксированный ID метрики и числовые значения, но не сохраняют
+свободный текст. Прогресс вычисляется из существующих Elo, матчей и судейских оценок.
+Выполнение фиксируется один раз, не начисляет токены и не влияет на Elo, matchmaking,
+судейство или исход матча. Рекомендации детерминированы и не вызывают OpenAI.
 
 /match_review и /pvp_coach доступны только владельцу Telegram user ID и анализируют
 только матчи, в которых он участвовал. Coaching-layer не создаёт новые оценки, не
@@ -117,10 +126,11 @@ ID полученного дивизиона, число токенов, Elo в 
 
 Участник PvP видит имя и аргументы своего соперника. Команда /delete_me удаляет профиль,
 архивы, PvP-рейтинг, историю матчей вместе с оценками, progression-данные, ranked reward
-claims, косметический инвентарь, настройку публичности, персональные вызовы, обе очереди,
-blocklist, настройки и активные Redis-сессии. После удаления исходных строк пользователь
-исчезает из карьеры, recap, сравнений, личных рекордов, сезонных архивов и Hall of Fame.
-Жалобы сохраняются как аудиторские записи, но связь с удалённым заявителем очищается."""
+claims, сезонные цели, косметический инвентарь, настройку публичности, персональные
+вызовы, обе очереди, blocklist, настройки и активные Redis-сессии. После удаления
+исходных строк пользователь исчезает из карьеры, recap, сравнений, личных рекордов,
+сезонных архивов и Hall of Fame. Жалобы сохраняются как аудиторские записи, но связь
+с удалённым заявителем очищается."""
 
 
 @router.message(Command("privacy"))
@@ -138,7 +148,7 @@ async def delete_me_command(
     token = await privacy.create(message.from_user.id)
     await message.answer(
         "⚠️ Это безвозвратно удалит статистику, достижения, архивы, настройки, "
-        "сезонный прогресс, рейтинговые награды, косметический инвентарь, "
+        "сезонный прогресс, цели, рейтинговые награды, косметический инвентарь, "
         "публичность, персональные вызовы, PvP-очереди и активный спор. "
         "Подтверждение действует 5 минут.",
         reply_markup=delete_confirmation_keyboard(token),
@@ -169,6 +179,7 @@ async def confirm_delete_callback(
     social_repository: SocialRepository,
     challenge_repository: ChallengeRepository,
     ranked_reward_repository: RankedRewardRepository,
+    season_goal_repository: SeasonGoalRepository,
 ) -> None:
     token = (callback.data or "").split(":", maxsplit=2)[-1]
     if not await privacy.consume(callback.from_user.id, token):
@@ -179,6 +190,7 @@ async def confirm_delete_callback(
             )
         return
     await moderation_repository.anonymize_user(callback.from_user.id)
+    await season_goal_repository.delete_user_data(callback.from_user.id)
     await ranked_reward_repository.delete_user_data(callback.from_user.id)
     await challenge_repository.delete_user_data(callback.from_user.id)
     await social_repository.delete_user_data(callback.from_user.id)
@@ -191,9 +203,9 @@ async def confirm_delete_callback(
     await callback.answer("Данные удалены")
     if callback.message is not None:
         await callback.message.edit_text(
-            "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, рейтинговые "
-            "награды, косметика, публичность, вызовы, очереди, настройки и активная "
-            "сессия удалены."
+            "🗑 Ваш профиль, архивы, статистика, сезонный прогресс, цели, "
+            "рейтинговые награды, косметика, публичность, вызовы, очереди, "
+            "настройки и активная сессия удалены."
         )
 
 
