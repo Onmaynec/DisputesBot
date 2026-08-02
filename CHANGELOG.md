@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.11.0 — 2026-08-02
+
+### Added
+
+- Five-match ranked placement before a visible division is assigned.
+- Seven deterministic Elo divisions from Bronze to Grandmaster.
+- `/league` with rank, record, recent form, recent Elo delta and promotion progress.
+- `/league_top` with division-aware season standings.
+- `/league_distribution` with player counts and percentages per division.
+
+### Reliability
+
+- Divisions are derived from existing seasonal Elo and are never stored separately.
+- League ranking reuses stable rating, games, update time and user ID tie-breakers.
+- Recent Elo delta ignores unrated anti-farming matches.
+- Recent form is calculated only from immutable completed matches in the current season.
+- Placement players remain visible in standings without receiving a premature division.
+
+### Privacy and compatibility
+
+- No new table, migration, runtime dependency or personal-data category is introduced.
+- Match transcripts, arguments and judge scores are not exposed by league views.
+- Existing v0.10 challenges, migration `0007_challenges` and release automation remain compatible.
+- League commands do not modify matchmaking, judging, rewards or Elo calculation.
+
 ## 0.10.0 — 2026-08-02
 
 ### Added
