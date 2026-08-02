@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from math import ceil
 
 from aiogram import Router
@@ -228,10 +229,8 @@ async def accept_challenge_command(
         return
 
     await message.answer("✅ Вызов принят. PvP-матч запущен.")
-    try:
+    with suppress(TelegramBadRequest, TelegramForbiddenError):
         await notify_match_started(message.bot, match)
-    except (TelegramBadRequest, TelegramForbiddenError):
-        pass
 
 
 @router.message(Command("decline_challenge"))
