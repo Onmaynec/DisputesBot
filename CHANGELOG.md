@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.17.0 — 2026-08-02
+
+### Added
+
+- `/goals` with private current-season progress for up to five active measurable goals.
+- `/set_goal <metric> <target>` for Elo, league, wins, matches, win rate, win streak and three judge skills.
+- `/delete_goal <metric>` for explicit goal removal.
+- `/goal_suggest` with deterministic placement, league, wins, streak and weakest-skill recommendations.
+- PostgreSQL table `pvp_season_goals` and migration `0009_season_goals`.
+- Sticky completion timestamps that preserve an achieved goal after later rating or average regression.
+
+### Reliability
+
+- Goal creation rejects unknown metrics, invalid ranges and targets already achieved with enough samples.
+- Win-rate goals require at least five matches before completion.
+- Logic, evidence and rebuttal goals require at least three valid scored matches.
+- Invalid historical score payloads are skipped without breaking other goal metrics.
+- Active-goal limits are enforced transactionally per user and season.
+- Progress is clamped to 0–100% and completion is evaluated from authoritative stored aggregates.
+- Recommendations exclude metrics that already have an active goal and never invoke OpenAI.
+
+### Privacy and compatibility
+
+- Goals are visible only to the owning Telegram user and store no free-form text.
+- Stored rows contain only user ID, season, metric ID, numeric baseline/target and timestamps.
+- Goal completion grants no tokens and does not affect Elo, matchmaking, judging or match outcomes.
+- `/delete_me` explicitly removes goal rows; the table also uses `ON DELETE CASCADE`.
+- Existing v0.16 insights, v0.15 archives, v0.14 rewards and all prior PvP data remain compatible.
+- No new runtime dependency or background task is introduced.
+
 ## 0.16.0 — 2026-08-02
 
 ### Added
