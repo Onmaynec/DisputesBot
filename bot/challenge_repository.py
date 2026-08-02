@@ -10,6 +10,7 @@ from .challenge_database import PvPChallengeRow
 from .challenge_models import (
     ChallengeAccessError,
     ChallengeBlockedError,
+    ChallengeError,
     ChallengeInbox,
     ChallengeNotFoundError,
     ChallengeStatus,
@@ -145,27 +146,37 @@ class ChallengeRepository:
         now: datetime | None = None,
     ) -> ChallengeView:
         reference = now or datetime.now(UTC)
+        error: ChallengeError | None = None
+        view: ChallengeView | None = None
         async with self.sessions.begin() as db:
             await self._refresh_states(db, reference)
             row = await db.get(PvPChallengeRow, challenge_id, with_for_update=True)
             if row is None:
-                raise ChallengeNotFoundError("Вызов не найден")
-            if row.target_id != target_id:
-                raise ChallengeAccessError("Принять вызов может только приглашённый игрок")
-            if row.status != ChallengeStatus.PENDING.value:
-                raise ChallengeUnavailableError("Вызов уже обработан или занят")
-            if self._as_utc(row.expires_at) <= reference:
+                error = ChallengeNotFoundError("Вызов не найден")
+            elif row.target_id != target_id:
+                error = ChallengeAccessError(
+                    "Принять вызов может только приглашённый игрок"
+                )
+            elif row.status != ChallengeStatus.PENDING.value:
+                error = ChallengeUnavailableError("Вызов уже обработан или занят")
+            elif self._as_utc(row.expires_at) <= reference:
                 row.status = ChallengeStatus.EXPIRED.value
                 row.resolved_at = reference
-                raise ChallengeUnavailableError("Срок действия вызова истёк")
-            if not await self._pair_allowed(db, row.challenger_id, row.target_id):
+                error = ChallengeUnavailableError("Срок действия вызова истёк")
+            elif not await self._pair_allowed(db, row.challenger_id, row.target_id):
                 row.status = ChallengeStatus.CANCELLED.value
                 row.resolved_at = reference
-                raise ChallengeBlockedError("Вызов недоступен из-за блокировки")
-            row.status = ChallengeStatus.ACCEPTING.value
-            row.resolved_at = reference
-            await db.flush()
-            return await self._view(db, row)
+                error = ChallengeBlockedError("Вызов недоступен из-за блокировки")
+            else:
+                row.status = ChallengeStatus.ACCEPTING.value
+                row.resolved_at = reference
+                await db.flush()
+                view = await self._view(db, row)
+        if error is not None:
+            raise error
+        if view is None:
+            raise ChallengeUnavailableError("Не удалось зарезервировать вызов")
+        return view
 
     async def complete_accept(
         self,
