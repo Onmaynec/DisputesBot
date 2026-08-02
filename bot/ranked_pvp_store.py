@@ -98,7 +98,7 @@ class RankedPvPStore(PvPStore):
                         entry.participant,
                         topic=selected.topic,
                         season=entry.season,
-                        rated_hint=entry.mode is PvPQueueMode.RANKED,
+                        rated_hint=True,
                     )
                 except PvPBusyError:
                     retained.extend((selected, entry))
