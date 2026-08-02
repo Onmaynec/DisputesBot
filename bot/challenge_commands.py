@@ -7,14 +7,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message, User
 
-from .challenge_models import (
-    ChallengeAccessError,
-    ChallengeBlockedError,
-    ChallengeError,
-    ChallengeNotFoundError,
-    ChallengeUnavailableError,
-    ChallengeView,
-)
+from .challenge_models import ChallengeError, ChallengeView
 from .challenge_repository import ChallengeRepository
 from .config import Settings
 from .pvp_invites import notify_match_started
@@ -34,7 +27,8 @@ def _identity(user: User) -> PvPUser:
 
 
 def _hours_remaining(challenge: ChallengeView) -> int:
-    return max(0, ceil((challenge.expires_at - challenge.created_at).total_seconds() / 3600))
+    seconds = (challenge.expires_at - challenge.created_at).total_seconds()
+    return max(0, ceil(seconds / 3600))
 
 
 async def _send_safely(bot, user_id: int, text: str) -> bool:
@@ -49,7 +43,7 @@ def _challenge_line(challenge: ChallengeView, *, incoming: bool) -> str:
     player = challenge.challenger if incoming else challenge.target
     direction = "от" if incoming else "для"
     return (
-        f"• `{challenge.challenge_id}` {direction} {player.display_name}\n"
+        f"• {challenge.challenge_id} {direction} {player.display_name}\n"
         f"  Тема: {challenge.topic}\n"
         f"  Действует до: {challenge.expires_at:%Y-%m-%d %H:%M} UTC"
     )
@@ -109,8 +103,7 @@ async def challenge_command(
     if not created:
         await message.answer(
             "У этой пары уже есть активный вызов.\n"
-            f"ID: `{challenge.challenge_id}` · список: /challenges",
-            parse_mode="Markdown",
+            f"ID: {challenge.challenge_id} · список: /challenges"
         )
         return
 
@@ -127,18 +120,19 @@ async def challenge_command(
         f"Отклонить: /decline_challenge {challenge.challenge_id}\n"
         "Все вызовы: /challenges",
     )
-    delivery_text = "Соперник уведомлён." if delivered else (
-        "Личное уведомление недоступно; вызов сохранён в /challenges."
+    delivery_text = (
+        "Соперник уведомлён."
+        if delivered
+        else "Личное уведомление недоступно; вызов сохранён в /challenges."
     )
     await message.answer(
         "✅ Персональный вызов создан\n\n"
-        f"ID: `{challenge.challenge_id}`\n"
+        f"ID: {challenge.challenge_id}\n"
         f"Соперник: {challenge.target.display_name}\n"
         f"Тема: {challenge.topic}\n"
         f"Срок: {hours} ч.\n"
         f"{delivery_text}\n\n"
-        f"Отменить: /cancel_challenge {challenge.challenge_id}",
-        parse_mode="Markdown",
+        f"Отменить: /cancel_challenge {challenge.challenge_id}"
     )
 
 
@@ -173,7 +167,7 @@ async def challenges_command(
         lines.append("Исходящие:")
         lines.extend(_challenge_line(item, incoming=False) for item in inbox.outgoing)
         lines.extend(["", "Отменить: /cancel_challenge ID"])
-    await message.answer("\n".join(lines), parse_mode="Markdown")
+    await message.answer("\n".join(lines))
 
 
 @router.message(Command("accept_challenge"))
@@ -234,7 +228,10 @@ async def accept_challenge_command(
         return
 
     await message.answer("✅ Вызов принят. PvP-матч запущен.")
-    await notify_match_started(message.bot, match)
+    try:
+        await notify_match_started(message.bot, match)
+    except (TelegramBadRequest, TelegramForbiddenError):
+        pass
 
 
 @router.message(Command("decline_challenge"))
@@ -257,7 +254,7 @@ async def decline_challenge_command(
     await _send_safely(
         message.bot,
         challenge.challenger.user_id,
-        f"Вызов `{challenge.challenge_id}` отклонён игроком "
+        f"Вызов {challenge.challenge_id} отклонён игроком "
         f"{challenge.target.display_name}.",
     )
     await message.answer("Вызов отклонён.")
@@ -277,16 +274,13 @@ async def cancel_challenge_command(
         return
     try:
         challenge = await challenge_repository.cancel(challenge_id, message.from_user.id)
-    except (ChallengeNotFoundError, ChallengeAccessError, ChallengeUnavailableError) as exc:
-        await message.answer(str(exc))
-        return
-    except ChallengeBlockedError as exc:
+    except ChallengeError as exc:
         await message.answer(str(exc))
         return
     await _send_safely(
         message.bot,
         challenge.target.user_id,
-        f"Вызов `{challenge.challenge_id}` отменён автором "
+        f"Вызов {challenge.challenge_id} отменён автором "
         f"{challenge.challenger.display_name}.",
     )
     await message.answer("Вызов отменён.")
