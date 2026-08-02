@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     pvp_daily_reset_hour_utc: int = 0
     pvp_daily_reward_multiplier: int = 1
     pvp_stats_window_days: int = 30
+    pvp_challenge_ttl_hours: int = 24
     moderator_user_ids: str = ""
     log_level: str = "INFO"
 
@@ -58,6 +59,13 @@ class Settings(BaseSettings):
     def validate_stats_window(cls, value: int) -> int:
         if not 1 <= value <= 365:
             raise ValueError("PVP_STATS_WINDOW_DAYS must be between 1 and 365")
+        return value
+
+    @field_validator("pvp_challenge_ttl_hours")
+    @classmethod
+    def validate_challenge_ttl(cls, value: int) -> int:
+        if not 1 <= value <= 168:
+            raise ValueError("PVP_CHALLENGE_TTL_HOURS must be between 1 and 168")
         return value
 
     @property
