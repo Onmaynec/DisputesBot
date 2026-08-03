@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "disputes-bot"
-version = "0.21.0"
-description = "Telegram debate trainer with collectible PvP season pass cosmetics"
+version = "0.22.0"
+description = "Telegram debate trainer with collectible PvP season pass completion rewards"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
