@@ -1,30 +1,30 @@
 <div align="center">
 
-# ⚔️ DisputesBot v0.21
+# ⚔️ DisputesBot v0.22
 
 **Telegram-бот для тренировки дебатов, логики и критического мышления**
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![aiogram](https://img.shields.io/badge/aiogram-3.30.0-2CA5E0)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pass%20cosmetics-336791)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pass%20completion-336791)
 ![Redis](https://img.shields.io/badge/Redis-ranked%20matchmaking-red)
-![Version](https://img.shields.io/badge/version-0.21.0-brightgreen)
+![Version](https://img.shields.io/badge/version-0.22.0-brightgreen)
 
 </div>
 
-## ✨ Новое в v0.21
+## ✨ Новое в v0.22
 
-- 🎨 семь эксклюзивных предметов сезонного пропуска;
-- 🎟 `/season_pass` показывает токены и косметику каждого уровня;
-- 🎁 `/claim_season_pass` выдаёт токены и предметы одной транзакцией;
-- 🖼 `/pass_collection` показывает коллекцию, unlock и equipped status;
-- 🎖 первый предмет свободного badge/title-слота экипируется автоматически;
-- ♻️ старые claims v0.20 получают пропущенную косметику без повторных токенов;
-- 🗄️ migration `0012_season_pass_cosmetics` сохраняет item ID и время выдачи.
+- 🌟 финальная награда за полное закрытие сезонного пропуска;
+- 🏷️ эксклюзивный титул **«Хранитель сезона»**;
+- 🎨 коллекция расширена до восьми предметов;
+- 🎁 `/claim_season_pass` выдаёт финальный титул в существующей транзакции;
+- ♻️ игроки, закрывшие v0.21, получают только отсутствующий титул без повторных токенов;
+- 🔒 повторный claim остаётся идемпотентным;
+- 🧩 новая миграция и дополнительные runtime-зависимости не требуются.
 
-Все возможности v0.20 сохранены: season pass, goal rewards, measurable goals,
-record books, season insights, ranked rewards, coaching, Elo matchmaking, challenges
-и магазин косметики.
+Все возможности v0.21 сохранены: семь tier-наград, season pass, goal rewards,
+measurable goals, record books, season insights, ranked rewards, coaching,
+Elo-matchmaking, challenges и магазин косметики.
 
 ## 🎟 Сезонный пропуск
 
@@ -43,14 +43,20 @@ record books, season insights, ranked rewards, coaching, Elo matchmaking, challe
 | 💎 Элита | 1400 | 50 | 🔷 Кристалл аргумента |
 | 👑 Чемпион | 2000 | 70 | Чемпион сезона |
 | 🏆 Легенда | 3000 | 100 | 🏆 Трофей легенды |
+| 🌟 Финал | 7/7 claims | — | Хранитель сезона |
 
 `/claim_season_pass` блокирует профиль, progression wallet, pass claims, cosmetic
 inventory и loadout в одной PostgreSQL-транзакции. Составной ключ
-`(user_id, season, tier_id)` исключает повторную token-награду.
+`(user_id, season, tier_id)` исключает повторную token-награду, а составной ключ
+inventory исключает дубликаты косметики.
 
-Для claims, созданных в v0.20, повторная команда выдаёт только отсутствующий предмет.
-Токены повторно не начисляются. Если предмет уже есть, audit row восстанавливается без
-дубликата inventory.
+Финальная награда выдаётся только после того, как все семь уровней имеют token claim,
+точный cosmetic item ID и время выдачи. Она не добавляет токены или season points.
+Если title-слот свободен, титул экипируется автоматически.
+
+Для claims, созданных в v0.20, повторная команда выдаёт только отсутствующую
+tier-косметику. Для полностью закрытого пропуска v0.21 повторный claim выдаёт только
+`pass_completion_keeper`. Уже начисленные токены не повторяются.
 
 Pass cosmetics:
 
@@ -60,8 +66,7 @@ Pass cosmetics:
 - поддерживают `/equip item_id`;
 - отображаются в PvP-профиле, если экипированы.
 
-Награды не добавляют season points и не меняют Elo, matchmaking, judging или исход
-матча.
+Награды не меняют Elo, matchmaking, judging или исход матча.
 
 ## 🎯 Сезонные цели и награды
 
@@ -211,13 +216,16 @@ alembic upgrade head
 python -m bot.main
 ```
 
-Обновление с v0.20:
+Обновление с v0.21:
 
 ```bash
 git pull
 pip install -e ".[dev]"
 alembic upgrade head
 ```
+
+В v0.22 новая миграция отсутствует, но команда `alembic upgrade head` остаётся
+безопасной и сохраняет стандартный процесс обновления.
 
 ## ✅ Проверки
 
@@ -233,8 +241,9 @@ CI выполняет install, Ruff, compileall, Alembic и полный pytest 
 ## 🔐 Приватность
 
 Season-pass claim хранит user ID, season, tier ID, points requirement, token reward,
-claimed points, точный cosmetic item ID и timestamps. Debate text, topic, match ID,
-transcript, verdict и judge-score payload не копируются.
+claimed points, точный cosmetic item ID и timestamps. Финальный титул использует
+существующую сезонную inventory row. Debate text, topic, match ID, transcript, verdict
+и judge-score payload не копируются.
 
 `/delete_me` удаляет профиль, матчи, progression wallet, daily/ranked/goal/pass claims,
 цели, косметику, profile visibility, challenges, blocklist, queues и Redis-сессии.

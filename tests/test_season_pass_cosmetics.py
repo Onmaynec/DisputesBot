@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import select
 
 from bot.cosmetic_database import PvPCosmeticLoadoutRow, PvPCosmeticRow
+from bot.cosmetics import SEASON_PASS_COMPLETION_COSMETIC, cosmetic_by_id
 from bot.database import Database, PvPProgressionRow, UserProfileRow
 from bot.pvp_models import PvPUser
 from bot.season_pass_database import PvPSeasonPassClaimRow
@@ -61,6 +62,7 @@ async def test_claim_grants_items_and_auto_equips_empty_slots() -> None:
         )
         claims = list(await db.scalars(select(PvPSeasonPassClaimRow)))
     assert item_ids == set(result.granted_cosmetic_ids)
+    assert SEASON_PASS_COMPLETION_COSMETIC.item_id not in item_ids
     assert loadout is not None
     assert loadout.badge_id == "pass_rookie_leaf"
     assert loadout.title_id == "pass_contender_voice"
@@ -107,9 +109,90 @@ async def test_v020_claim_backfills_item_without_repaying_tokens() -> None:
     await database.close()
 
 
+@pytest.mark.asyncio
+async def test_full_pass_grants_completion_reward_once() -> None:
+    database = await database_with_wallet(3_000, 5)
+    repository = SeasonPassRepository(database.sessions)
+
+    first = await repository.claim(USER, "season-1")
+
+    expected_tiers = tuple(tier.tier_id for tier in SEASON_PASS_TIERS)
+    expected_items = tuple(tier.reward_cosmetic_id for tier in SEASON_PASS_TIERS)
+    assert first.claimed_tier_ids == expected_tiers
+    assert first.granted_cosmetic_ids == (
+        *expected_items,
+        SEASON_PASS_COMPLETION_COSMETIC.item_id,
+    )
+    assert first.gained_tokens == sum(tier.reward_tokens for tier in SEASON_PASS_TIERS)
+    assert first.wallet_tokens == 310
+
+    second = await repository.claim(USER, "season-1")
+    assert second.changed is False
+    assert second.gained_tokens == 0
+    assert second.wallet_tokens == 310
+
+    dashboard = await repository.dashboard(1, "season-1")
+    assert dashboard.all_tiers_claimed is True
+    assert dashboard.completion_cosmetic_owned is True
+    assert dashboard.completion_reward_claimable is False
+    assert dashboard.collection_count == dashboard.collection_total == 8
+
+    async with database.sessions() as db:
+        item_ids = set(
+            await db.scalars(
+                select(PvPCosmeticRow.item_id).where(PvPCosmeticRow.user_id == 1)
+            )
+        )
+    assert item_ids == {*expected_items, SEASON_PASS_COMPLETION_COSMETIC.item_id}
+    await database.close()
+
+
+@pytest.mark.asyncio
+async def test_v021_completed_pass_backfills_only_completion_reward() -> None:
+    database = await database_with_wallet(3_000, 305)
+    claimed_at = datetime(2026, 8, 2, tzinfo=UTC)
+    async with database.sessions.begin() as db:
+        for tier in SEASON_PASS_TIERS:
+            db.add(
+                PvPSeasonPassClaimRow(
+                    user_id=1,
+                    season="season-1",
+                    tier_id=tier.tier_id,
+                    points_required=tier.points_required,
+                    reward_tokens=tier.reward_tokens,
+                    claimed_points=3_000,
+                    reward_item_id=tier.reward_cosmetic_id,
+                    cosmetic_granted_at=claimed_at,
+                    claimed_at=claimed_at,
+                )
+            )
+            item = tier.reward_cosmetic
+            db.add(
+                PvPCosmeticRow(
+                    user_id=1,
+                    season="season-1",
+                    item_id=item.item_id,
+                    kind=item.kind.value,
+                    purchased_at=claimed_at,
+                )
+            )
+
+    result = await SeasonPassRepository(database.sessions).claim(USER, "season-1")
+
+    assert result.claimed_tier_ids == ()
+    assert result.gained_tokens == 0
+    assert result.wallet_tokens == 305
+    assert result.granted_cosmetic_ids == (
+        SEASON_PASS_COMPLETION_COSMETIC.item_id,
+    )
+    await database.close()
+
+
 def test_each_tier_has_a_unique_known_cosmetic() -> None:
     item_ids = [tier.reward_cosmetic_id for tier in SEASON_PASS_TIERS]
     assert len(item_ids) == len(set(item_ids))
+    assert SEASON_PASS_COMPLETION_COSMETIC.item_id not in item_ids
+    assert cosmetic_by_id(SEASON_PASS_COMPLETION_COSMETIC.item_id) is not None
     assert all(
         tier.reward_cosmetic.item_id == tier.reward_cosmetic_id
         for tier in SEASON_PASS_TIERS

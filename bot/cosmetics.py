@@ -113,6 +113,14 @@ SHOP_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
 # the legacy /buy path. They are granted only by the season-pass transaction.
 _REWARD_ONLY_PRICE = 2_147_483_648
 
+SEASON_PASS_COMPLETION_COSMETIC = CosmeticItem(
+    "pass_completion_keeper",
+    CosmeticKind.TITLE,
+    "Хранитель сезона",
+    "Хранитель сезона",
+    _REWARD_ONLY_PRICE,
+)
+
 SEASON_PASS_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
     CosmeticItem(
         "pass_rookie_leaf",
@@ -163,6 +171,7 @@ SEASON_PASS_COSMETIC_CATALOG: tuple[CosmeticItem, ...] = (
         "🏆",
         _REWARD_ONLY_PRICE,
     ),
+    SEASON_PASS_COMPLETION_COSMETIC,
 )
 
 # Backward-compatible name for the paid shop catalog.

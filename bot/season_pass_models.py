@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .cosmetics import CosmeticItem, season_pass_cosmetic_by_id
+from .cosmetics import (
+    SEASON_PASS_COMPLETION_COSMETIC,
+    CosmeticItem,
+    season_pass_cosmetic_by_id,
+)
 
 
 class SeasonPassInputError(ValueError):
@@ -120,14 +124,37 @@ class SeasonPassDashboard:
     season_points: int
     wallet_tokens: int
     tiers: tuple[SeasonPassTierView, ...]
+    completion_cosmetic_owned: bool = False
+
+    @property
+    def completion_cosmetic(self) -> CosmeticItem:
+        return SEASON_PASS_COMPLETION_COSMETIC
+
+    @property
+    def all_tiers_claimed(self) -> bool:
+        return bool(self.tiers) and all(tier.is_claimed for tier in self.tiers)
+
+    @property
+    def completion_reward_claimable(self) -> bool:
+        return self.all_tiers_claimed and not self.completion_cosmetic_owned
 
     @property
     def claimable_count(self) -> int:
-        return sum(tier.is_claimable for tier in self.tiers)
+        return sum(tier.is_claimable for tier in self.tiers) + int(
+            self.completion_reward_claimable
+        )
 
     @property
     def claimed_count(self) -> int:
         return sum(tier.is_claimed for tier in self.tiers)
+
+    @property
+    def collection_count(self) -> int:
+        return self.claimed_count + int(self.completion_cosmetic_owned)
+
+    @property
+    def collection_total(self) -> int:
+        return len(self.tiers) + 1
 
     @property
     def next_tier(self) -> SeasonPassTierView | None:

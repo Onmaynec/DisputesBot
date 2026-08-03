@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .cosmetic_database import PvPCosmeticLoadoutRow, PvPCosmeticRow
-from .cosmetics import CosmeticKind
+from .cosmetics import SEASON_PASS_COMPLETION_COSMETIC, CosmeticKind
 from .database import PvPProgressionRow, UserProfileRow
 from .pvp_models import PvPUser
 from .season_pass_database import PvPSeasonPassClaimRow
@@ -38,6 +38,19 @@ class SeasonPassRepository:
                     )
                 )
             )
+            completion_cosmetic_owned = (
+                await db.scalar(
+                    select(PvPCosmeticRow.item_id)
+                    .where(
+                        PvPCosmeticRow.user_id == user_id,
+                        PvPCosmeticRow.season == normalized_season,
+                        PvPCosmeticRow.item_id
+                        == SEASON_PASS_COMPLETION_COSMETIC.item_id,
+                    )
+                    .limit(1)
+                )
+                is not None
+            )
         season_points = int(wallet.season_points if wallet is not None else 0)
         wallet_tokens = int(wallet.tokens if wallet is not None else 0)
         claim_by_tier = {row.tier_id: row for row in claims}
@@ -61,6 +74,7 @@ class SeasonPassRepository:
             season_points=season_points,
             wallet_tokens=wallet_tokens,
             tiers=tuple(views),
+            completion_cosmetic_owned=completion_cosmetic_owned,
         )
 
     async def claim(
@@ -191,6 +205,46 @@ class SeasonPassRepository:
 
                 row.reward_item_id = item.item_id
                 row.cosmetic_granted_at = reference
+
+            pass_complete = True
+            for tier in SEASON_PASS_TIERS:
+                row = claim_by_tier.get(tier.tier_id)
+                if (
+                    row is None
+                    or row.reward_item_id != tier.reward_cosmetic_id
+                    or row.cosmetic_granted_at is None
+                    or tier.reward_cosmetic_id not in owned_ids
+                ):
+                    pass_complete = False
+                    break
+
+            completion_item = SEASON_PASS_COMPLETION_COSMETIC
+            if pass_complete and completion_item.item_id not in owned_ids:
+                db.add(
+                    PvPCosmeticRow(
+                        user_id=user.user_id,
+                        season=normalized_season,
+                        item_id=completion_item.item_id,
+                        kind=completion_item.kind.value,
+                        purchased_at=reference,
+                    )
+                )
+                owned_ids.add(completion_item.item_id)
+                granted_cosmetic_ids.append(completion_item.item_id)
+                if loadout is None:
+                    loadout = PvPCosmeticLoadoutRow(
+                        user_id=user.user_id,
+                        season=normalized_season,
+                    )
+                    db.add(loadout)
+                if completion_item.kind is CosmeticKind.TITLE and loadout.title_id is None:
+                    loadout.title_id = completion_item.item_id
+                    loadout.updated_at = reference
+                    auto_equipped_ids.append(completion_item.item_id)
+                elif completion_item.kind is CosmeticKind.BADGE and loadout.badge_id is None:
+                    loadout.badge_id = completion_item.item_id
+                    loadout.updated_at = reference
+                    auto_equipped_ids.append(completion_item.item_id)
 
             if gained_tokens:
                 wallet.tokens += gained_tokens
