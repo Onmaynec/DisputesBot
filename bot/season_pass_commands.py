@@ -6,7 +6,7 @@ from aiogram.types import BotCommand, Message
 
 from .config import Settings
 from .cosmetic_repository import CosmeticRepository
-from .cosmetics import cosmetic_by_id
+from .cosmetics import SEASON_PASS_COMPLETION_COSMETIC, cosmetic_by_id
 from .progression_repository import ProgressionRepository
 from .pvp_invites import _identity
 from .season_pass_models import SeasonPassDashboard, tier_for_id
@@ -15,7 +15,7 @@ from .season_pass_repository import SeasonPassRepository
 router = Router(name="season_pass")
 
 
-async def register_v21_commands(bot: Bot) -> None:
+async def register_v22_commands(bot: Bot) -> None:
     commands = await bot.get_my_commands()
     existing = {item.command for item in commands}
     additions = [
@@ -34,10 +34,10 @@ async def register_v21_commands(bot: Bot) -> None:
         await bot.set_my_commands(merged)
 
 
-router.startup.register(register_v21_commands)
+router.startup.register(register_v22_commands)
 
 
-PRIVACY_TEXT = """🔐 Приватность DisputesBot v0.21
+PRIVACY_TEXT = """🔐 Приватность DisputesBot v0.22
 
 Постоянно сохраняются Telegram user_id, имя профиля, статистика и архивы дебатов,
 сезонный PvP Elo, завершённые матчи, судейские оценки полных матчей, blocklist,
@@ -50,13 +50,15 @@ balance season points в момент claim, точным cosmetic item ID и в
 Темы, аргументы, стенограммы, вердикты и judge-score payload туда не копируются.
 
 /season_pass, /claim_season_pass и /pass_collection доступны только владельцу
-Telegram user ID. Один уровень можно получить только один раз за сезон. Награда
-добавляет токены и фиксированный сезонный предмет, но не начисляет season points,
-не меняет Elo, matchmaking, судейство или исход матча.
+Telegram user ID. Один уровень можно получить только один раз за сезон. После выдачи
+всех семи уровней бот добавляет финальный титул «Хранитель сезона» в ту же
+транзакцию. Финальная награда не начисляет токены или season points, не меняет Elo,
+matchmaking, судейство или исход матча.
 
-После обновления старый claim v0.20 может выдать отсутствующую косметику без повторного
-начисления токенов. Предметы пропуска нельзя купить через /buy. Они находятся в том же
-сезонном инвентаре, поддерживают /equip и могут отображаться в PvP-профиле.
+После обновления старые claims v0.20 могут получить отсутствующую tier-косметику, а
+полностью закрытый пропуск v0.21 — финальный титул без повторного начисления токенов.
+Предметы пропуска нельзя купить через /buy. Они находятся в том же сезонном
+инвентаре, поддерживают /equip и могут отображаться в PvP-профиле.
 
 Приватные goals, coaching, recap, comparison и record-book отчёты другим игрокам не
 показываются. Публичные команды используют только разрешённые агрегаты профиля.
@@ -76,13 +78,22 @@ def _progress_bar(progress: float) -> str:
     return "█" * filled + "░" * (10 - filled)
 
 
+def _completion_status(dashboard: SeasonPassDashboard) -> tuple[str, str]:
+    if dashboard.completion_cosmetic_owned:
+        return "✅", "получено"
+    if dashboard.completion_reward_claimable:
+        return "🎁", "получить: /claim_season_pass"
+    return "🔒", f"закройте уровни: {dashboard.claimed_count}/{len(dashboard.tiers)}"
+
+
 def render_season_pass(dashboard: SeasonPassDashboard) -> str:
     lines = [
         "🎟 Сезонный пропуск",
         f"Сезон: {dashboard.season}",
         f"Прогресс: {dashboard.season_points} очков",
         f"Кошелёк: {dashboard.wallet_tokens} 🪙",
-        f"Доступно: {dashboard.claimable_count} · получено: {dashboard.claimed_count}",
+        f"Доступно: {dashboard.claimable_count}",
+        f"Коллекция: {dashboard.collection_count}/{dashboard.collection_total}",
         "",
     ]
     for view in dashboard.tiers:
@@ -109,6 +120,12 @@ def render_season_pass(dashboard: SeasonPassDashboard) -> str:
             lines.append(f"{_progress_bar(view.progress)} {view.progress_percent}%")
         lines.append("")
 
+    completion = dashboard.completion_cosmetic
+    marker, status = _completion_status(dashboard)
+    lines.append(f"{marker} 🌟 Финал коллекции")
+    lines.append(f"Награда: {completion.display} {completion.name} · {status}")
+    lines.append("")
+
     next_tier = dashboard.next_tier
     if next_tier is None:
         lines.append("🏆 Все уровни сезонного пропуска разблокированы.")
@@ -133,13 +150,14 @@ def _repository(progression_repository: ProgressionRepository) -> SeasonPassRepo
 
 
 @router.message(CommandStart())
-async def start_v21_command(message: Message) -> None:
+async def start_v22_command(message: Message) -> None:
     await message.answer(
-        "⚔️ Добро пожаловать в DisputesBot v0.21!\n\n"
+        "⚔️ Добро пожаловать в DisputesBot v0.22!\n\n"
         "Новые возможности:\n"
-        "/season_pass — уровни, токены и эксклюзивные предметы\n"
+        "/season_pass — уровни, токены и финальная награда\n"
         "/claim_season_pass — получить все разблокированные награды\n"
-        "/pass_collection — коллекция косметики пропуска\n\n"
+        "/pass_collection — коллекция из восьми эксклюзивов\n\n"
+        "За полное закрытие пропуска выдаётся титул «Хранитель сезона».\n\n"
         "Награды целей: /goal_rewards · /claim_goal_rewards\n"
         "Цели: /goals · /set_goal · /goal_suggest\n"
         "Итоги: /season_recap · /compare_seasons · /career_records\n"
@@ -148,7 +166,7 @@ async def start_v21_command(message: Message) -> None:
 
 
 @router.message(Command("privacy"))
-async def privacy_v21_command(message: Message) -> None:
+async def privacy_v22_command(message: Message) -> None:
     await message.answer(PRIVACY_TEXT)
 
 
@@ -200,6 +218,8 @@ async def claim_season_pass_command(
                 f"{item.display} {item.name}" if item is not None else item_id
             )
         lines.append(f"Косметика: {', '.join(cosmetic_labels)}")
+    if SEASON_PASS_COMPLETION_COSMETIC.item_id in result.granted_cosmetic_ids:
+        lines.append("🌟 Пропуск закрыт полностью — финальный титул разблокирован.")
     if result.auto_equipped_ids:
         lines.append("Первый предмет в свободном слоте экипирован автоматически.")
     lines.append(
@@ -228,8 +248,8 @@ async def pass_collection_command(
     equipped = {inventory.equipped_badge_id, inventory.equipped_title_id}
     lines = [
         "🎨 Коллекция сезонного пропуска",
-        f"Сезон: {settings.pvp_season}",
-        f"Получено: {dashboard.claimed_count}/{len(dashboard.tiers)}",
+        f"Сезон: {dashboard.season}",
+        f"Получено: {dashboard.collection_count}/{dashboard.collection_total}",
         "",
     ]
     for view in dashboard.tiers:
@@ -249,5 +269,28 @@ async def pass_collection_command(
         lines.append(
             f"{marker} {item.display} {item.name} (`{item.item_id}`) — {status}"
         )
-    lines.extend(["", "Экипировать предмет: /equip item_id"])
+
+    completion = dashboard.completion_cosmetic
+    if completion.item_id in equipped:
+        marker = "🎖"
+        status = "экипировано"
+    elif completion.item_id in inventory.owned_item_ids:
+        marker = "✅"
+        status = "в инвентаре"
+    elif dashboard.completion_reward_claimable:
+        marker = "🎁"
+        status = "получить: /claim_season_pass"
+    else:
+        marker = "🔒"
+        status = f"закройте уровни: {dashboard.claimed_count}/{len(dashboard.tiers)}"
+    lines.extend(
+        [
+            "",
+            "🌟 Финальная награда",
+            f"{marker} {completion.display} {completion.name} "
+            f"(`{completion.item_id}`) — {status}",
+            "",
+            "Экипировать предмет: /equip item_id",
+        ]
+    )
     await message.answer("\n".join(lines), parse_mode="Markdown")
